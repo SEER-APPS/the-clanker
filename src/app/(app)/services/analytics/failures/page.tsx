@@ -1,0 +1,134 @@
+"use client";
+
+import { useState } from "react";
+import { useGetAnalyticsFailuresQuery } from "@/store/admin-api";
+import type { Paginated } from "@/types/admin";
+import { PaginationControls } from "@/components/admin/pagination-controls";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+export default function AnalyticsFailuresPage(): React.ReactElement {
+  const [page, setPage] = useState(1);
+  const [product, setProduct] = useState("");
+  const [search, setSearch] = useState("");
+  const [applied, setApplied] = useState({ product: "", search: "" });
+
+  const { data, isLoading, isError } = useGetAnalyticsFailuresQuery({
+    page,
+    product: applied.product || undefined,
+    search: applied.search || undefined,
+  });
+
+  const block = data as
+    | { transactions?: Paginated<Record<string, unknown>>; filters?: Record<string, string> }
+    | undefined;
+  const list = block?.transactions;
+
+  return (
+    <article className="space-y-6">
+      <header className="flex flex-col gap-2">
+        <Link
+          href="/services/analytics"
+          className={buttonVariants({ variant: "link", size: "sm" })}
+        >
+          Back to analytics
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">Reloadly failures</h1>
+      </header>
+
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-3 pt-6">
+          <div className="space-y-2">
+            <Label htmlFor="af-prod">Product</Label>
+            <Input
+              id="af-prod"
+              value={product}
+              onChange={(e) => {
+                setProduct(e.target.value);
+              }}
+              placeholder="airtime or data"
+            />
+          </div>
+          <div className="min-w-[12rem] flex-1 space-y-2">
+            <Label htmlFor="af-search">Search</Label>
+            <Input
+              id="af-search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+              }}
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={() => {
+              setApplied({ product, search });
+              setPage(1);
+            }}
+          >
+            Apply
+          </Button>
+        </CardContent>
+      </Card>
+
+      {isError ? (
+        <p className="text-destructive text-sm">Could not load failures.</p>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Transactions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-muted-foreground text-sm">Loading…</p>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Recipient</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(list?.items ?? []).map((row) => {
+                    const r = row as Record<string, unknown>;
+                    return (
+                      <TableRow key={String(r.id)}>
+                        <TableCell className="font-mono text-xs">{String(r.id)}</TableCell>
+                        <TableCell>{String(r.product ?? "—")}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {String(r.recipient ?? "—")}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <PaginationControls
+                className="mt-4"
+                meta={list?.meta}
+                page={page}
+                onPageChange={setPage}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </article>
+  );
+}
