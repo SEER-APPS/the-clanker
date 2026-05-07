@@ -37,20 +37,20 @@ export const adminApi = createApi({
       query: (params) => ({ url: "/users", params }),
       providesTags: ["Users"],
     }),
-    getUser: builder.query<{ user: Record<string, unknown> }, number>({
-      query: (id) => `/users/${id}`,
-      providesTags: (_r, _e, id) => [{ type: "Users", id }],
+    getUser: builder.query<{ user: Record<string, unknown> }, string>({
+      query: (uuid) => `/users/uuid/${uuid}`,
+      providesTags: (_r, _e, uuid) => [{ type: "Users", id: uuid }],
     }),
-    blockUser: builder.mutation<void, number>({
-      query: (id) => ({ url: `/users/${id}/block`, method: "POST" }),
+    blockUser: builder.mutation<void, string>({
+      query: (uuid) => ({ url: `/users/uuid/${uuid}/block`, method: "POST" }),
       invalidatesTags: ["Users", "Dashboard"],
     }),
-    unblockUser: builder.mutation<void, number>({
-      query: (id) => ({ url: `/users/${id}/unblock`, method: "POST" }),
+    unblockUser: builder.mutation<void, string>({
+      query: (uuid) => ({ url: `/users/uuid/${uuid}/unblock`, method: "POST" }),
       invalidatesTags: ["Users", "Dashboard"],
     }),
-    deleteUser: builder.mutation<void, number>({
-      query: (id) => ({ url: `/users/${id}`, method: "DELETE" }),
+    deleteUser: builder.mutation<void, string>({
+      query: (uuid) => ({ url: `/users/uuid/${uuid}`, method: "DELETE" }),
       invalidatesTags: ["Users", "Dashboard"],
     }),
     getThreatAlerts: builder.query<
@@ -79,10 +79,28 @@ export const adminApi = createApi({
       { page?: number; status?: string; event_type?: string; search?: string }
     >({
       query: (params) => ({ url: "/notifications", params }),
+      transformResponse: (raw: unknown) => {
+        if (raw && typeof raw === "object" && "data" in raw) {
+          const d = (raw as { data?: unknown }).data;
+          if (d && typeof d === "object") {
+            return d as Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> };
+          }
+        }
+        return raw as Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> };
+      },
       providesTags: ["Notifications"],
     }),
     getReloadlyAirtime: builder.query<Record<string, unknown>, { page?: number }>({
       query: (params) => ({ url: "/services/reloadly/airtime", params }),
+      transformResponse: (raw: unknown) => {
+        if (raw && typeof raw === "object" && "data" in raw) {
+          const d = (raw as { data?: unknown }).data;
+          if (d && typeof d === "object") {
+            return d as Record<string, unknown>;
+          }
+        }
+        return raw as Record<string, unknown>;
+      },
     }),
     getReloadlyPrepaid: builder.query<Record<string, unknown>, { page?: number }>({
       query: (params) => ({ url: "/services/reloadly/prepaid", params }),
@@ -92,6 +110,15 @@ export const adminApi = createApi({
       { countryIso?: string }
     >({
       query: (params) => ({ url: "/services/reloadly/operators", params }),
+      transformResponse: (raw: unknown) => {
+        if (raw && typeof raw === "object" && "data" in raw) {
+          const d = (raw as { data?: unknown }).data;
+          if (d && typeof d === "object") {
+            return d as { countryIso: string; operators: unknown; mappings: unknown };
+          }
+        }
+        return raw as { countryIso: string; operators: unknown; mappings: unknown };
+      },
     }),
     saveOperatorMappings: builder.mutation<unknown, Record<string, unknown>>({
       query: (body) => ({
@@ -190,6 +217,15 @@ export const adminApi = createApi({
     }),
     getDataCatalogue: builder.query<Record<string, unknown>, void>({
       query: () => "/services/data-catalogue",
+      transformResponse: (raw: unknown) => {
+        if (raw && typeof raw === "object" && "data" in raw) {
+          const d = (raw as { data?: unknown }).data;
+          if (d && typeof d === "object") {
+            return d as Record<string, unknown>;
+          }
+        }
+        return raw as Record<string, unknown>;
+      },
     }),
     postDataCatalogueFetch: builder.mutation<unknown, Record<string, unknown>>({
       query: (body) => ({ url: "/services/data-catalogue/fetch", method: "POST", body }),
@@ -199,6 +235,10 @@ export const adminApi = createApi({
     }),
     getBalances: builder.query<Record<string, unknown>, void>({
       query: () => "/services/balances",
+      providesTags: ["Balances"],
+    }),
+    getHubtelBalance: builder.query<Record<string, unknown>, void>({
+      query: () => "/services/balances/hubtel",
       providesTags: ["Balances"],
     }),
     getReloadlyBalance: builder.query<Record<string, unknown>, void>({
@@ -214,6 +254,15 @@ export const adminApi = createApi({
     }),
     getHubtelSummary: builder.query<Record<string, unknown>, void>({
       query: () => "/services/hubtel/summary",
+      transformResponse: (raw: unknown) => {
+        if (raw && typeof raw === "object" && "data" in raw) {
+          const d = (raw as { data?: unknown }).data;
+          if (d && typeof d === "object") {
+            return d as Record<string, unknown>;
+          }
+        }
+        return raw as Record<string, unknown>;
+      },
       providesTags: ["Hubtel"],
     }),
     getHubtelTransactions: builder.query<
@@ -221,10 +270,28 @@ export const adminApi = createApi({
       Record<string, string | boolean | number | undefined>
     >({
       query: (params) => ({ url: "/services/hubtel/transactions", params }),
+      transformResponse: (raw: unknown) => {
+        if (raw && typeof raw === "object" && "data" in raw) {
+          const d = (raw as { data?: unknown }).data;
+          if (d && typeof d === "object") {
+            return d as Record<string, unknown>;
+          }
+        }
+        return raw as Record<string, unknown>;
+      },
       providesTags: ["Hubtel"],
     }),
     getHubtelTransaction: builder.query<Record<string, unknown>, string | number>({
       query: (id) => `/services/hubtel/transactions/${id}`,
+      transformResponse: (raw: unknown) => {
+        if (raw && typeof raw === "object" && "data" in raw) {
+          const d = (raw as { data?: unknown }).data;
+          if (d && typeof d === "object") {
+            return d as Record<string, unknown>;
+          }
+        }
+        return raw as Record<string, unknown>;
+      },
       providesTags: (_r, _e, id) => [{ type: "Hubtel", id: String(id) }],
     }),
     deleteHubtelTransaction: builder.mutation<unknown, string | number>({
@@ -389,6 +456,7 @@ export const {
   usePostDataCatalogueFetchMutation,
   usePostDataCatalogueFindMutation,
   useGetBalancesQuery,
+  useGetHubtelBalanceQuery,
   useGetReloadlyBalanceQuery,
   usePostVerifyNumberMutation,
   useGetHubtelSummaryQuery,

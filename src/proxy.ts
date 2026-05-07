@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_TOKEN_COOKIE } from "@/lib/admin-cookie";
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(ADMIN_TOKEN_COOKIE)?.value;
 
@@ -33,3 +33,4 @@ export function middleware(request: NextRequest): NextResponse {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+

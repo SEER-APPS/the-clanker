@@ -123,8 +123,48 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 13px;
+    line-height: 1.5;
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer utilities {
+  .admin-page-title {
+    @apply text-[26px] font-semibold tracking-[-0.02em] text-foreground;
+  }
+
+  .admin-page-sub {
+    @apply mt-1 text-[12px] text-muted-foreground;
+  }
+
+  .admin-card-title {
+    @apply text-[11px] font-semibold uppercase tracking-widest text-muted-foreground;
+  }
+
+  .admin-stat-tile {
+    @apply bg-card border border-border px-5 py-4;
+  }
+
+  .admin-stat-label {
+    @apply mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground;
+  }
+
+  .admin-stat-value {
+    @apply text-[32px] font-bold tracking-[-0.03em] leading-none text-foreground tabular-nums;
+  }
+
+  .admin-stat-sub {
+    @apply mt-1.5 text-[11px] text-muted-foreground;
+  }
+
+  .admin-table-head {
+    @apply text-[10px] font-semibold uppercase tracking-widest text-muted-foreground;
+  }
+
+  .admin-table-heavy-divider {
+    @apply border-b-2 border-foreground;
   }
 }

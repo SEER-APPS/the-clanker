@@ -54,7 +54,7 @@ export default function HubtelTransactionsPage(): React.ReactElement {
   const [batchArchive, { isLoading: aBusy }] = useHubtelBatchArchiveMutation();
   const [batchRefresh, { isLoading: rBusy }] = useHubtelBatchRefreshStatusMutation();
 
-  const txWrap = data?.transactions as Paginated<Record<string, unknown>> | undefined;
+  const txWrap = data as Paginated<Record<string, unknown>> | undefined;
   const rows = txWrap?.items ?? [];
 
   function toggle(id: number, on: boolean): void {

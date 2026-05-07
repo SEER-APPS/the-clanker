@@ -10,6 +10,7 @@ import {
 } from "@/store/admin-api";
 import type { Paginated } from "@/types/admin";
 import { PaginationControls } from "@/components/admin/pagination-controls";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,20 +45,20 @@ export default function UsersPage(): React.ReactElement {
 
   async function run(
     action: "block" | "unblock" | "delete",
-    id: number,
+    uuid: string,
   ): Promise<void> {
     if (action === "delete" && !window.confirm("Delete this user permanently?")) {
       return;
     }
     try {
       if (action === "block") {
-        await blockUser(id).unwrap();
+        await blockUser(uuid).unwrap();
         toast.success("User blocked.");
       } else if (action === "unblock") {
-        await unblockUser(id).unwrap();
+        await unblockUser(uuid).unwrap();
         toast.success("User unblocked.");
       } else {
-        await deleteUser(id).unwrap();
+        await deleteUser(uuid).unwrap();
         toast.success("User deleted.");
       }
       void refetch();
@@ -72,16 +73,14 @@ export default function UsersPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Search, filter, and manage end-user accounts.
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Users"
+        subtitle="Search, filter, and manage end-user accounts."
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
+      <Card className="rounded-none">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="admin-card-title">Filters</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="flex-1 space-y-2">
@@ -129,33 +128,38 @@ export default function UsersPage(): React.ReactElement {
         <p className="text-destructive text-sm">Could not load users.</p>
       ) : null}
 
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="rounded-none">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="admin-card-title">User List</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
           {isLoading ? (
             <p className="text-muted-foreground text-sm">Loading…</p>
           ) : (
             <>
               <Table>
-                <TableHeader>
+                <TableHeader className="admin-table-heavy-divider">
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Blocked</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="admin-table-head">ID</TableHead>
+                    <TableHead className="admin-table-head">Name</TableHead>
+                    <TableHead className="admin-table-head">Phone</TableHead>
+                    <TableHead className="admin-table-head">Blocked</TableHead>
+                    <TableHead className="admin-table-head text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(list?.items ?? []).map((row) => {
+                  {(list?.items ?? []).map((row, index) => {
                     const r = row as Record<string, unknown>;
-                    const id = Number(r.id);
+                    const uuid = String(r.uuid ?? "");
                     const blocked = Boolean(r.is_blocked);
+                    const perPage = Number(list?.meta?.per_page ?? 20);
+                    const rowNumber = (page - 1) * perPage + index + 1;
                     return (
-                      <TableRow key={id}>
-                        <TableCell className="font-mono text-xs">{id}</TableCell>
+                      <TableRow key={uuid || index}>
+                        <TableCell className="font-mono text-xs">{rowNumber}</TableCell>
                         <TableCell>
                           <Link
-                            href={`/users/${id}`}
+                            href={`/users/${encodeURIComponent(uuid)}`}
                             className="text-primary font-medium hover:underline"
                           >
                             {String(r.name ?? "—")}
@@ -173,7 +177,7 @@ export default function UsersPage(): React.ReactElement {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  void run("unblock", id);
+                                  void run("unblock", uuid);
                                 }}
                               >
                                 Unblock
@@ -184,7 +188,7 @@ export default function UsersPage(): React.ReactElement {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  void run("block", id);
+                                  void run("block", uuid);
                                 }}
                               >
                                 Block
@@ -195,7 +199,7 @@ export default function UsersPage(): React.ReactElement {
                               variant="destructive"
                               size="sm"
                               onClick={() => {
-                                void run("delete", id);
+                                void run("delete", uuid);
                               }}
                             >
                               Delete
@@ -208,7 +212,7 @@ export default function UsersPage(): React.ReactElement {
                 </TableBody>
               </Table>
               <PaginationControls
-                className="mt-4"
+                className="p-4"
                 meta={list?.meta}
                 page={page}
                 onPageChange={(p) => {

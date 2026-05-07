@@ -16,11 +16,13 @@ import { toast } from "sonner";
 export default function UserDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ uuid: string }>;
 }): React.ReactElement {
-  const { id: idParam } = use(params);
-  const id = Number(idParam);
-  const { data, isLoading, isError, refetch } = useGetUserQuery(id, { skip: !Number.isFinite(id) });
+  const { uuid } = use(params);
+
+  const { data, isLoading, isError, refetch } = useGetUserQuery(uuid, {
+    skip: !uuid,
+  });
   const [blockUser] = useBlockUserMutation();
   const [unblockUser] = useUnblockUserMutation();
   const [deleteUser] = useDeleteUserMutation();
@@ -34,13 +36,13 @@ export default function UserDetailPage({
     }
     try {
       if (action === "block") {
-        await blockUser(id).unwrap();
+        await blockUser(uuid).unwrap();
         toast.success("User blocked.");
       } else if (action === "unblock") {
-        await unblockUser(id).unwrap();
+        await unblockUser(uuid).unwrap();
         toast.success("User unblocked.");
       } else {
-        await deleteUser(id).unwrap();
+        await deleteUser(uuid).unwrap();
         toast.success("User deleted.");
         window.location.href = "/users";
         return;
@@ -55,8 +57,8 @@ export default function UserDetailPage({
     }
   }
 
-  if (!Number.isFinite(id)) {
-    return <p className="text-destructive text-sm">Invalid user id.</p>;
+  if (!uuid) {
+    return <p className="text-destructive text-sm">Invalid user.</p>;
   }
 
   if (isLoading) {
@@ -71,10 +73,7 @@ export default function UserDetailPage({
     <article className="space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <Link
-            href="/users"
-            className="text-muted-foreground text-sm hover:underline"
-          >
+          <Link href="/users" className="text-muted-foreground text-sm hover:underline">
             Back to users
           </Link>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
@@ -118,41 +117,22 @@ export default function UserDetailPage({
         </div>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Profile</CardTitle>
+      <Card className="rounded-none">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="admin-card-title">Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <Row
-            label="ID"
-            value={String(user.id)}
-          />
-          <Row
-            label="UUID"
-            value={String(user.uuid ?? "—")}
-          />
-          <Row
-            label="Blocked"
-            value={blocked ? "Yes" : "No"}
-          />
-          <Row
-            label="Messages"
-            value={String(user.messages_count ?? "—")}
-          />
-          <Row
-            label="Conversations"
-            value={String(user.conversations_count ?? "—")}
-          />
-          <Row
-            label="Threat alerts"
-            value={String(user.threat_alerts_count ?? "—")}
-          />
+          <Row label="UUID" value={String(user.uuid ?? "—")} />
+          <Row label="Blocked" value={blocked ? "Yes" : "No"} />
+          <Row label="Messages" value={String(user.messages_count ?? "—")} />
+          <Row label="Conversations" value={String(user.conversations_count ?? "—")} />
+          <Row label="Threat alerts" value={String(user.threat_alerts_count ?? "—")} />
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent sessions</CardTitle>
+      <Card className="rounded-none">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="admin-card-title">Recent sessions</CardTitle>
         </CardHeader>
         <CardContent>
           <pre className="bg-muted max-h-64 overflow-auto rounded-md p-3 font-mono text-xs">
@@ -168,10 +148,11 @@ function Row({ label, value }: { label: string; value: string }): React.ReactEle
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <span className="text-muted-foreground min-w-[8rem]">{label}</span>
+        <span className="text-muted-foreground min-w-32">{label}</span>
         <span>{value}</span>
       </div>
       <Separator />
     </>
   );
 }
+

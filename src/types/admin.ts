@@ -28,6 +28,8 @@ export type DashboardPayload = {
     id: number;
     name: string | null;
     phone_number: string | null;
+    is_blocked?: boolean;
+    is_active?: boolean;
     created_at: string | null;
   }>;
   recent_alerts: Array<{

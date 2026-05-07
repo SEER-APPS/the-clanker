@@ -42,3 +42,6 @@ next-env.d.ts
 
 *.env.example
 *.env
+
+# Cursor agent notes (never commit)
+AGENTS.md

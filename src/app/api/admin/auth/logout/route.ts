@@ -15,6 +15,9 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
     if (process.env.MOBILE_API_KEY) {
       headers.set("X-Seer-Client-Key", process.env.MOBILE_API_KEY);
     }
+    if (process.env.ADMIN_API_SECRET) {
+      headers.set("X-Seer-Admin-Key", process.env.ADMIN_API_SECRET);
+    }
     await fetch(`${base}/api/admin/v1/auth/logout`, { method: "POST", headers });
   }
 

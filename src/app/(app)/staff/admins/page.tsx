@@ -15,6 +15,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 
 export default function StaffAdminsPage(): React.ReactElement {
   const { data: me } = useGetMeQuery();
@@ -28,6 +39,7 @@ export default function StaffAdminsPage(): React.ReactElement {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [open, setOpen] = useState(false);
 
   if (!me?.admin.is_super_admin) {
     return (
@@ -56,157 +68,265 @@ export default function StaffAdminsPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Admin accounts</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Create and manage dashboard users.</p>
-      </header>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <AdminPageHeader
+          title="Admin Accounts"
+          subtitle={`${admins.length} account${admins.length === 1 ? "" : "s"} · only super admins can manage this section`}
+        />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">New admin</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="grid max-w-md gap-3"
-            onSubmit={(e) => {
-              void onCreate(e);
-            }}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="sa-name">Name</Label>
-              <Input
-                id="sa-name"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                }}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sa-email">Email</Label>
-              <Input
-                id="sa-email"
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                }}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sa-pw">Password</Label>
-              <Input
-                id="sa-pw"
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                }}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sa-pw2">Confirm</Label>
-              <Input
-                id="sa-pw2"
-                type="password"
-                value={passwordConfirmation}
-                onChange={(e) => {
-                  setPasswordConfirmation(e.target.value);
-                }}
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={cBusy}
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) {
+              setName("");
+              setEmail("");
+              setPassword("");
+              setPasswordConfirmation("");
+            }
+          }}
+        >
+          <DialogTrigger
+            render={
+              <Button type="button">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add Admin
+              </Button>
+            }
+          />
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Add Admin</DialogTitle>
+            </DialogHeader>
+
+            <p className="text-muted-foreground text-sm">
+              New admins can access all sections except admin account management.
+            </p>
+
+            <form
+              className="grid gap-3"
+              onSubmit={(e) => {
+                void (async () => {
+                  await onCreate(e);
+                  setOpen(false);
+                })();
+              }}
             >
-              Create
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Label htmlFor="sa-name">Full name</Label>
+                <Input
+                  id="sa-name"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                  }}
+                  required
+                  placeholder="e.g. Jane Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sa-email">Email address</Label>
+                <Input
+                  id="sa-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                  }}
+                  required
+                  placeholder="e.g. jane@theseer.app"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sa-pw">Password</Label>
+                <Input
+                  id="sa-pw"
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                  }}
+                  required
+                  placeholder="Min. 8 characters with letters and numbers"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sa-pw2">Confirm password</Label>
+                <Input
+                  id="sa-pw2"
+                  type="password"
+                  value={passwordConfirmation}
+                  onChange={(e) => {
+                    setPasswordConfirmation(e.target.value);
+                  }}
+                  required
+                  placeholder="Re-enter password"
+                />
+              </div>
+
+              <div className="bg-muted rounded-md border p-3 text-sm">
+                <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-widest">
+                  Permissions
+                </div>
+                <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+                  This admin will have <span className="text-foreground font-semibold">read access</span>{" "}
+                  to users, threat alerts, conversations, and notification logs. They{" "}
+                  <span className="text-foreground font-semibold">cannot</span> manage other admin
+                  accounts or perform destructive actions reserved for super admins.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button type="submit" disabled={cBusy}>
+                  {cBusy ? "Creating…" : "Create Admin Account"}
+                </Button>
+                <DialogClose
+                  render={
+                    <Button type="button" variant="ghost" disabled={cBusy} />
+                  }
+                >
+                  Cancel
+                </DialogClose>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {isError ? (
         <p className="text-destructive text-sm">Could not load admins.</p>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Existing</CardTitle>
+      <Card className="rounded-none">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="admin-card-title">Accounts</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
+            <p className="text-muted-foreground p-6 text-sm">Loading…</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>#</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Super</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Last login</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {admins.map((a) => {
                   const id = Number(a.id);
                   const isSuper = Boolean(a.is_super_admin);
+                  const isSelf = id === Number(me?.admin.id);
+                  const profilePhoto = String(a.profile_photo ?? "");
+                  const initial = String(a.name ?? "?").slice(0, 1).toUpperCase();
                   return (
                     <TableRow key={id}>
-                      <TableCell>{String(a.name)}</TableCell>
-                      <TableCell>{String(a.email)}</TableCell>
-                      <TableCell>{isSuper ? "yes" : "no"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={rBusy}
-                            onClick={() => {
-                              void (async () => {
-                                try {
-                                  await changeRole(id).unwrap();
-                                  toast.success("Role updated.");
-                                  void refetch();
-                                } catch (err) {
-                                  toast.error(parseErr(err));
-                                }
-                              })();
-                            }}
-                          >
-                            Toggle role
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            disabled={dBusy || isSuper}
-                            onClick={() => {
-                              if (!window.confirm("Remove this admin?")) {
-                                return;
-                              }
-                              void (async () => {
-                                try {
-                                  await remove(id).unwrap();
-                                  toast.success("Removed.");
-                                  void refetch();
-                                } catch (err) {
-                                  toast.error(parseErr(err));
-                                }
-                              })();
-                            }}
-                          >
-                            Delete
-                          </Button>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{id}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {profilePhoto ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={profilePhoto}
+                              alt={String(a.name ?? "Admin")}
+                              className="h-7 w-7 shrink-0 border border-border object-cover"
+                            />
+                          ) : (
+                            <div
+                              className={[
+                                "flex h-7 w-7 shrink-0 items-center justify-center border border-border text-[11px] font-bold",
+                                isSuper ? "bg-foreground text-background" : "bg-muted text-muted-foreground",
+                              ].join(" ")}
+                            >
+                              {initial}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <span className="block truncate text-sm font-medium">
+                              {String(a.name ?? "—")}
+                              {isSelf ? (
+                                <span className="text-muted-foreground ml-2 text-[11px]">(you)</span>
+                              ) : null}
+                            </span>
+                          </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {String(a.email ?? "—")}
+                      </TableCell>
+                      <TableCell>
+                        {isSuper ? <Badge variant="dark">Super Admin</Badge> : <Badge variant="gray">Admin</Badge>}
+                      </TableCell>
+                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                        {String(a.last_login_at ?? "Never")}
+                      </TableCell>
+                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                        {String(a.created_at ?? "—")}
+                      </TableCell>
+                      <TableCell>
+                        {isSelf ? (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={rBusy}
+                              onClick={() => {
+                                void (async () => {
+                                  try {
+                                    await changeRole(id).unwrap();
+                                    toast.success(isSuper ? "Demoted." : "Promoted.");
+                                    void refetch();
+                                  } catch (err) {
+                                    toast.error(parseErr(err));
+                                  }
+                                })();
+                              }}
+                            >
+                              {isSuper ? "Demote" : "Promote"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={dBusy || isSuper}
+                              onClick={() => {
+                                if (!window.confirm(`Remove ${String(a.name ?? "this admin")}'s admin access?`)) {
+                                  return;
+                                }
+                                void (async () => {
+                                  try {
+                                    await remove(id).unwrap();
+                                    toast.success("Removed.");
+                                    void refetch();
+                                  } catch (err) {
+                                    toast.error(parseErr(err));
+                                  }
+                                })();
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
                 })}
+                {!admins.length ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-muted-foreground py-10 text-center">
+                      No admin accounts yet.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
           )}

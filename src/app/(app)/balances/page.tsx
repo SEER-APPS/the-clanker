@@ -1,21 +1,77 @@
 "use client";
 
-import { useGetBalancesQuery, useGetReloadlyBalanceQuery, usePostVerifyNumberMutation } from "@/store/admin-api";
+import {
+  useGetBalancesQuery,
+  useGetHubtelBalanceQuery,
+  useGetReloadlyBalanceQuery,
+  usePostVerifyNumberMutation,
+} from "@/store/admin-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { toast } from "sonner";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+type BalancesPayload = {
+  hubtelSpent?: number;
+  hubtelCommission?: number;
+  hubtelNetCost?: number;
+  hubtelPending?: number;
+  hubtelConfigured?: boolean;
+  ordersTotal?: number;
+  ordersDelivered?: number;
+  ordersPending?: number;
+  ordersFailed?: number;
+  revenueCollected?: number;
+  deliveryCost?: number;
+  totalMarkup?: number;
+  recentOrders?: RecentOrder[];
+};
+
+type RecentOrder = {
+  uuid: string;
+  product?: string;
+  product_label?: string;
+  recipient?: string;
+  recipient_name?: string | null;
+  charged_amount?: number;
+  delivery_amount?: number;
+  markup?: number;
+  status?: string;
+  created_human?: string | null;
+};
 
 export default function BalancesPage(): React.ReactElement {
   const { data: summary, isLoading } = useGetBalancesQuery();
   const { data: reloadly, refetch: refetchReloadly } = useGetReloadlyBalanceQuery();
+  const { data: hubtelBalance, refetch: refetchHubtelBalance } = useGetHubtelBalanceQuery();
   const [verify, { isLoading: verifying }] = usePostVerifyNumberMutation();
   const [phone, setPhone] = useState("");
   const [network, setNetwork] = useState("");
   const [mode, setMode] = useState("both");
   const [verifyResult, setVerifyResult] = useState<unknown>(null);
+
+  const payload = (summary && typeof summary === "object"
+    ? (summary as BalancesPayload)
+    : undefined) satisfies BalancesPayload | undefined;
+
+  const reloadlyData = (reloadly && typeof reloadly === "object"
+    ? (reloadly as Record<string, unknown>)
+    : undefined) satisfies Record<string, unknown> | undefined;
+
+  const hubtelLive = (hubtelBalance && typeof hubtelBalance === "object"
+    ? (hubtelBalance as { amount?: unknown; responseCode?: unknown; message?: unknown })
+    : undefined) satisfies { amount?: unknown; responseCode?: unknown; message?: unknown } | undefined;
 
   async function onVerify(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -38,73 +94,177 @@ export default function BalancesPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Balances and verification</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Aggregated spend and quick number checks against providers.
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Provider Balances"
+        subtitle="Monitor funds across Hubtel and Reloadly — and verify customer numbers"
+      />
 
-      {isLoading || !summary ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
-      ) : (
-        <section className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Hubtel</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-muted overflow-auto rounded-md p-3 font-mono text-xs">
-                {JSON.stringify(summary.hubtel, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Service orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-muted overflow-auto rounded-md p-3 font-mono text-xs">
-                {JSON.stringify(summary.service_orders, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
+      {isLoading || !payload ? (
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Card key={i} className="rounded-none p-3">
+              <div className="bg-muted h-6 w-24 animate-pulse rounded" />
+              <div className="bg-muted mt-2 h-3 w-28 animate-pulse rounded" />
+              <div className="bg-muted mt-2 h-3 w-40 animate-pulse rounded" />
+            </Card>
+          ))}
         </section>
+      ) : (
+        <>
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <KpiCard
+              label="Revenue Collected"
+              value={`GHS ${formatMoney(payload.revenueCollected)}`}
+              note="Charged to customers (delivered orders)"
+            />
+            <KpiCard
+              label="Delivery Cost"
+              value={`GHS ${formatMoney(payload.deliveryCost)}`}
+              note="Paid out via Hubtel Commission Services"
+            />
+            <KpiCard
+              label="Markup Earned"
+              value={`GHS ${formatMoney(payload.totalMarkup)}`}
+              note="Revenue minus delivery cost"
+            />
+            <KpiCard
+              label="Hubtel Commission"
+              value={`GHS ${formatMoney(payload.hubtelCommission, 4)}`}
+              note="Commission credited back from Hubtel"
+            />
+            <KpiCard
+              label="Hubtel Pending"
+              value={`GHS ${formatMoney(payload.hubtelPending)}`}
+              note="Pending Commission Services transactions"
+            />
+          </section>
+
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatCard label="Total Orders" value={String(payload.ordersTotal ?? 0)} />
+            <StatCard label="Delivered" value={String(payload.ordersDelivered ?? 0)} />
+            <StatCard label="In Progress" value={String(payload.ordersPending ?? 0)} />
+            <StatCard label="Failed" value={String(payload.ordersFailed ?? 0)} />
+          </section>
+        </>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Reloadly live balance</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void refetchReloadly();
-            }}
-          >
-            Refresh
-          </Button>
-          <pre className="bg-muted overflow-auto rounded-md p-3 font-mono text-xs">
-            {JSON.stringify(reloadly ?? {}, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Card className="rounded-none">
+          <CardHeader className="flex flex-row items-center justify-between border-b py-3">
+            <CardTitle className="admin-card-title">Reloadly Account Balance</CardTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                void refetchReloadly();
+              }}
+            >
+              Refresh
+            </Button>
+          </CardHeader>
+          <CardContent className="py-4">
+            {reloadlyData ? (
+              <div className="space-y-1">
+                <div className="text-primary text-2xl font-semibold">
+                  {String(reloadlyData.currencyCode ?? "USD")}{" "}
+                  {formatMoney(Number(reloadlyData.balance ?? 0))}
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  Country: {String(reloadlyData.countryCode ?? "—")} &nbsp;|&nbsp; Currency:{" "}
+                  {String(reloadlyData.currencyName ?? "—")}
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Click Refresh to fetch live balance.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Verify number</CardTitle>
+        <Card className="rounded-none">
+          <CardHeader className="border-b py-3">
+            <CardTitle className="admin-card-title">Hubtel Account Balance</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Disbursement (Prepaid)</div>
+                <div className="text-muted-foreground text-xs">
+                  Requires Hubtel IP whitelisting for the Balance Query API.
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  void refetchHubtelBalance();
+                }}
+              >
+                Refresh
+              </Button>
+            </div>
+
+            {hubtelLive ? (
+              <div className="space-y-1">
+                <div className="text-primary text-2xl font-semibold">
+                  GHS {formatMoney(hubtelLive.amount)}
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  {String(hubtelLive.responseCode ?? "—")} · {String(hubtelLive.message ?? "—")}
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">Click Refresh to fetch live Hubtel balance.</p>
+            )}
+
+            <div className="bg-muted rounded-md p-3 text-sm">
+              <span className="font-semibold">Net Hubtel cost to date:</span>{" "}
+              <span className="text-destructive font-semibold">
+                GHS {formatMoney(payload?.hubtelNetCost)}
+              </span>{" "}
+              <span className="text-muted-foreground text-xs">
+                (spent minus commission returned)
+              </span>
+            </div>
+
+            <p className="text-muted-foreground text-xs">
+              Console fallback:{" "}
+              <a
+                href="https://unity.hubtel.com"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                unity.hubtel.com → Accounts → Prepaid
+              </a>
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card className="rounded-none">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="admin-card-title">Number Verification</CardTitle>
+          <p className="text-muted-foreground text-xs">
+            Verify recipient name before charging customer — requires Hubtel IP whitelisting
+          </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 py-4">
+          <div className="border-l-4 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <span className="font-semibold">IP Whitelisting required.</span> Both the MSISDN
+            Name Query and MoMo Wallet Verify endpoints require your server IP to be whitelisted
+            with Hubtel. A 403 response means you are not yet whitelisted.
+          </div>
+
           <form
-            className="grid max-w-xl gap-3"
+            className="grid gap-3 lg:grid-cols-4 lg:items-end"
             onSubmit={(e) => {
               void onVerify(e);
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="v-phone">Phone</Label>
+              <Label htmlFor="v-phone">Phone number</Label>
               <Input
                 id="v-phone"
                 value={phone}
@@ -112,21 +272,27 @@ export default function BalancesPage(): React.ReactElement {
                   setPhone(e.target.value);
                 }}
                 required
+                placeholder="e.g. 0548496120"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="v-network">Network (optional)</Label>
-              <Input
+              <Label htmlFor="v-network">Network (auto-detected)</Label>
+              <select
                 id="v-network"
+                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
                 value={network}
                 onChange={(e) => {
                   setNetwork(e.target.value);
                 }}
-                placeholder="mtn, telecel, at"
-              />
+              >
+                <option value="">Auto-detect</option>
+                <option value="mtn">MTN</option>
+                <option value="telecel">Telecel</option>
+                <option value="at">AirtelTigo</option>
+              </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="v-mode">Mode</Label>
+              <Label htmlFor="v-mode">Verification mode</Label>
               <select
                 id="v-mode"
                 className="border-input bg-background h-9 rounded-md border px-3 text-sm"
@@ -135,25 +301,129 @@ export default function BalancesPage(): React.ReactElement {
                   setMode(e.target.value);
                 }}
               >
-                <option value="both">both</option>
-                <option value="msisdn">msisdn</option>
-                <option value="momo">momo</option>
+                <option value="both">Both (SIM + MoMo)</option>
+                <option value="msisdn">SIM name only</option>
+                <option value="momo">MoMo wallet only</option>
               </select>
             </div>
-            <Button
-              type="submit"
-              disabled={verifying}
-            >
-              {verifying ? "Checking…" : "Verify"}
+            <Button type="submit" disabled={verifying}>
+              {verifying ? "Verifying…" : "Verify Number"}
             </Button>
-            {verifyResult !== null ? (
-              <pre className="bg-muted mt-2 max-h-64 overflow-auto rounded-md p-3 font-mono text-xs">
-                {JSON.stringify(verifyResult, null, 2)}
-              </pre>
-            ) : null}
           </form>
+
+          {verifyResult !== null ? (
+            <pre className="bg-muted max-h-80 overflow-auto rounded-md p-3 font-mono text-xs whitespace-pre-wrap wrap-break-word">
+              {JSON.stringify(verifyResult, null, 2)}
+            </pre>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-none">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="admin-card-title">Recent Service Orders</CardTitle>
+          <p className="text-muted-foreground text-xs">Payment-first orders from the public API</p>
+        </CardHeader>
+        <CardContent className="py-4">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Recipient</TableHead>
+                  <TableHead>Charged</TableHead>
+                  <TableHead>Delivery</TableHead>
+                  <TableHead>Markup</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(payload?.recentOrders ?? []).length ? (
+                  (payload?.recentOrders ?? []).map((o) => (
+                    <TableRow key={o.uuid} className="hover:bg-muted/30">
+                      <TableCell>
+                        <div className="text-sm font-medium">
+                          {o.product_label ?? o.product ?? "—"}
+                        </div>
+                        <div className="text-muted-foreground font-mono text-[11px]">{o.uuid}</div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {o.recipient ?? "—"}
+                        {o.recipient_name ? (
+                          <div className="text-muted-foreground font-sans text-[11px]">
+                            {o.recipient_name}
+                          </div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        GHS {formatMoney(o.charged_amount)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        GHS {formatMoney(o.delivery_amount)}
+                      </TableCell>
+                      <TableCell className="text-emerald-600 font-medium">
+                        GHS {formatMoney(o.markup, 4)}
+                      </TableCell>
+                      <TableCell className="text-sm">{formatStatus(o.status)}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {o.created_human ?? "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-muted-foreground py-10 text-center">
+                      No service orders yet. Orders appear here when customers pay via the API.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </article>
   );
+}
+
+function KpiCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note: string;
+}): React.ReactElement {
+  return (
+    <Card className="rounded-none p-3">
+      <div className="text-primary text-xl font-semibold">{value}</div>
+      <div className="text-muted-foreground mt-1 text-[11px] font-semibold tracking-wide uppercase">
+        {label}
+      </div>
+      <div className="text-muted-foreground mt-1 text-[11px] leading-relaxed">{note}</div>
+    </Card>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }): React.ReactElement {
+  return (
+    <Card className="rounded-none p-3">
+      <div className="text-2xl font-semibold">{value}</div>
+      <div className="text-muted-foreground mt-1 text-xs">{label}</div>
+    </Card>
+  );
+}
+
+function formatMoney(value: unknown, decimals: number = 2): string {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(n)) return (0).toFixed(decimals);
+  return n.toFixed(decimals);
+}
+
+function formatStatus(status: unknown): string {
+  const s = String(status ?? "");
+  if (!s) return "—";
+  return s.replaceAll("_", " ");
 }
