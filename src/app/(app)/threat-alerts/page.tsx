@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function ThreatAlertsPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -98,29 +99,29 @@ export default function ThreatAlertsPage(): React.ReactElement {
 
       <Card>
         <CardContent className="pt-6">
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>User</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>User</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton rows={8} cellWidths={["w-20", "w-24", "w-20", "w-28"]} />
+              ) : (
+                <>
                   {(list?.items ?? []).map((row) => {
                     const r = row as Record<string, unknown>;
-                    const id = Number(r.id);
+                    const id = String(r.id ?? "");
                     const u = r.user as Record<string, unknown> | undefined;
                     return (
                       <TableRow key={id}>
                         <TableCell className="font-mono text-xs">
                           <Link
-                            href={`/threat-alerts/${id}`}
+                            href={`/threat-alerts/${encodeURIComponent(id)}`}
                             className="text-primary hover:underline"
                           >
                             {id}
@@ -132,16 +133,18 @@ export default function ThreatAlertsPage(): React.ReactElement {
                       </TableRow>
                     );
                   })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="mt-4"
-                meta={list?.meta}
-                page={page}
-                onPageChange={setPage}
-              />
-            </>
-          )}
+                </>
+              )}
+            </TableBody>
+          </Table>
+          {!isLoading ? (
+            <PaginationControls
+              className="mt-4"
+              meta={list?.meta}
+              page={page}
+              onPageChange={setPage}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

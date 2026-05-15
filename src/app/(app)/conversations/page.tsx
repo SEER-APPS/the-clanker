@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function ConversationsPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -68,47 +69,47 @@ export default function ConversationsPage(): React.ReactElement {
 
       <Card>
         <CardContent className="pt-6">
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Messages</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(list?.items ?? []).map((row) => {
-                    const r = row as Record<string, unknown>;
-                    const id = Number(r.id);
-                    return (
-                      <TableRow key={id}>
-                        <TableCell className="font-mono text-xs">
-                          <Link
-                            href={`/conversations/${id}`}
-                            className="text-primary hover:underline"
-                          >
-                            {id}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{String(r.type)}</TableCell>
-                        <TableCell>{String(r.messages_count ?? "—")}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="mt-4"
-                meta={list?.meta}
-                page={page}
-                onPageChange={setPage}
-              />
-            </>
-          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Messages</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton rows={8} cellWidths={["w-16", "w-20", "w-12"]} />
+              ) : (
+                (list?.items ?? []).map((row) => {
+                  const r = row as Record<string, unknown>;
+                  const id = Number(r.id);
+                  return (
+                    <TableRow key={id}>
+                      <TableCell className="font-mono text-xs">
+                        <Link
+                          href={`/conversations/${id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {id}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{String(r.type)}</TableCell>
+                      <TableCell>{String(r.messages_count ?? "—")}</TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          {!isLoading ? (
+            <PaginationControls
+              className="mt-4"
+              meta={list?.meta}
+              page={page}
+              onPageChange={setPage}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

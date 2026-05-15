@@ -3,7 +3,7 @@
 import { useGetDashboardQuery } from "@/store/admin-api";
 import { DashboardCharts } from "@/components/admin/dashboard-charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardOverviewSkeleton } from "@/components/admin/admin-loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -62,20 +62,7 @@ export default function DashboardPage(): React.ReactElement {
   const { data, isLoading, isError } = useGetDashboardQuery();
 
   if (isLoading || !data) {
-    return (
-      <section className="space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid gap-4 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="h-24"
-            />
-          ))}
-        </div>
-        <Skeleton className="h-80" />
-      </section>
-    );
+    return <DashboardOverviewSkeleton />;
   }
 
   if (isError) {

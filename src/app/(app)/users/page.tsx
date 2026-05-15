@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   useGetUsersQuery,
@@ -11,10 +11,17 @@ import {
 import type { Paginated } from "@/types/admin";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -24,12 +31,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Loader2, MoreHorizontal } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const APPLY_FEEDBACK_MS = 1600;
 
 export default function UsersPage(): React.ReactElement {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [applyState, setApplyState] = useState<"idle" | "applied">("idle");
+  const applyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data, isLoading, isError, refetch } = useGetUsersQuery({
     page,
@@ -40,8 +53,19 @@ export default function UsersPage(): React.ReactElement {
   const [blockUser] = useBlockUserMutation();
   const [unblockUser] = useUnblockUserMutation();
   const [deleteUser] = useDeleteUserMutation();
+  const [actionKey, setActionKey] = useState<string | null>(null);
 
   const list = data as Paginated<Record<string, unknown>> | undefined;
+  const showTableSkeleton = isLoading && !list;
+  const skeletonRowCount = Math.min(Number(list?.meta?.per_page ?? 10), 12);
+
+  useEffect(() => {
+    return () => {
+      if (applyResetTimerRef.current) {
+        clearTimeout(applyResetTimerRef.current);
+      }
+    };
+  }, []);
 
   async function run(
     action: "block" | "unblock" | "delete",
@@ -50,6 +74,8 @@ export default function UsersPage(): React.ReactElement {
     if (action === "delete" && !window.confirm("Delete this user permanently?")) {
       return;
     }
+    const key = `${uuid}:${action}`;
+    setActionKey(key);
     try {
       if (action === "block") {
         await blockUser(uuid).unwrap();
@@ -68,7 +94,22 @@ export default function UsersPage(): React.ReactElement {
           ? String((e as { data?: { message?: string } }).data?.message ?? "Action failed.")
           : "Action failed.";
       toast.error(msg);
+    } finally {
+      setActionKey(null);
     }
+  }
+
+  function handleApplyFilters(): void {
+    setAppliedSearch(search);
+    setPage(1);
+    setApplyState("applied");
+    if (applyResetTimerRef.current) {
+      clearTimeout(applyResetTimerRef.current);
+    }
+    applyResetTimerRef.current = setTimeout(() => {
+      setApplyState("idle");
+      applyResetTimerRef.current = null;
+    }, APPLY_FEEDBACK_MS);
   }
 
   return (
@@ -114,12 +155,12 @@ export default function UsersPage(): React.ReactElement {
           </div>
           <Button
             type="button"
+            disabled={applyState === "applied"}
             onClick={() => {
-              setAppliedSearch(search);
-              setPage(1);
+              handleApplyFilters();
             }}
           >
-            Apply
+            {applyState === "applied" ? "Applied" : "Apply"}
           </Button>
         </CardContent>
       </Card>
@@ -133,94 +174,130 @@ export default function UsersPage(): React.ReactElement {
           <CardTitle className="admin-card-title">User List</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader className="admin-table-heavy-divider">
-                  <TableRow>
-                    <TableHead className="admin-table-head">ID</TableHead>
-                    <TableHead className="admin-table-head">Name</TableHead>
-                    <TableHead className="admin-table-head">Phone</TableHead>
-                    <TableHead className="admin-table-head">Blocked</TableHead>
-                    <TableHead className="admin-table-head text-right">Actions</TableHead>
+          <Table>
+            <TableHeader className="admin-table-heavy-divider">
+              <TableRow>
+                <TableHead className="admin-table-head">ID</TableHead>
+                <TableHead className="admin-table-head">Name</TableHead>
+                <TableHead className="admin-table-head">Phone</TableHead>
+                <TableHead className="admin-table-head">Blocked</TableHead>
+                <TableHead className="admin-table-head w-12 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {showTableSkeleton ? (
+                Array.from({ length: skeletonRowCount }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-8" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-36 max-w-full" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-10" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="ml-auto h-8 w-8 rounded-md" />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(list?.items ?? []).map((row, index) => {
-                    const r = row as Record<string, unknown>;
-                    const uuid = String(r.uuid ?? "");
-                    const blocked = Boolean(r.is_blocked);
-                    const perPage = Number(list?.meta?.per_page ?? 20);
-                    const rowNumber = (page - 1) * perPage + index + 1;
-                    return (
-                      <TableRow key={uuid || index}>
-                        <TableCell className="font-mono text-xs">{rowNumber}</TableCell>
-                        <TableCell>
-                          <Link
-                            href={`/users/${encodeURIComponent(uuid)}`}
-                            className="text-primary font-medium hover:underline"
+                ))
+              ) : (list?.items ?? []).length ? (
+                (list?.items ?? []).map((row, index) => {
+                  const r = row as Record<string, unknown>;
+                  const uuid = String(r.uuid ?? "");
+                  const blocked = Boolean(r.is_blocked);
+                  const perPage = Number(list?.meta?.per_page ?? 20);
+                  const rowNumber = (page - 1) * perPage + index + 1;
+                  const busy = actionKey !== null;
+                  return (
+                    <TableRow key={uuid || index}>
+                      <TableCell className="font-mono text-xs">{rowNumber}</TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/users/${encodeURIComponent(uuid)}`}
+                          className="text-primary font-medium hover:underline"
+                        >
+                          {String(r.name ?? "—")}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {String(r.phone_number ?? "—")}
+                      </TableCell>
+                      <TableCell>{blocked ? "Yes" : "No"}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            className={cn(
+                              buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                              "shrink-0",
+                            )}
+                            disabled={busy}
+                            aria-label="User actions"
                           >
-                            {String(r.name ?? "—")}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {String(r.phone_number ?? "—")}
-                        </TableCell>
-                        <TableCell>{blocked ? "Yes" : "No"}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                            {actionKey?.startsWith(`${uuid}:`) ? (
+                              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <MoreHorizontal className="size-4" aria-hidden="true" />
+                            )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-40">
                             {blocked ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
+                              <DropdownMenuItem
+                                disabled={busy}
                                 onClick={() => {
                                   void run("unblock", uuid);
                                 }}
                               >
                                 Unblock
-                              </Button>
+                              </DropdownMenuItem>
                             ) : (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
+                              <DropdownMenuItem
+                                disabled={busy}
                                 onClick={() => {
                                   void run("block", uuid);
                                 }}
                               >
                                 Block
-                              </Button>
+                              </DropdownMenuItem>
                             )}
-                            <Button
-                              type="button"
+                            <DropdownMenuItem
                               variant="destructive"
-                              size="sm"
+                              disabled={busy}
                               onClick={() => {
                                 void run("delete", uuid);
                               }}
                             >
                               Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="p-4"
-                meta={list?.meta}
-                page={page}
-                onPageChange={(p) => {
-                  setPage(p);
-                }}
-              />
-            </>
-          )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="px-3.5 py-8 text-center text-sm text-muted-foreground">
+                    No users match these filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          {!showTableSkeleton ? (
+            <PaginationControls
+              className="p-4"
+              meta={list?.meta}
+              page={page}
+              onPageChange={(p) => {
+                setPage(p);
+              }}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

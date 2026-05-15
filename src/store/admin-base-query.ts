@@ -49,6 +49,10 @@ export const adminJsonBaseQuery: BaseQueryFn<
     ...(raw.headers as HeadersInit | undefined),
   };
 
+  if (typeof window !== "undefined" && window.location.origin) {
+    (headers as Record<string, string>)["X-Seer-Admin-Origin"] = window.location.origin;
+  }
+
   const init: RequestInit = {
     method: raw.method ?? "GET",
     credentials: "same-origin",

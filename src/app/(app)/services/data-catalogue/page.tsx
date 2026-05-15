@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -154,8 +155,17 @@ export default function DataCataloguePage(): React.ReactElement {
             </div>
           </div>
           <div className="md:col-span-2 lg:col-span-4">
-            <Button type="submit" disabled={fetching}>
-              {fetching ? "Loading…" : packages.length ? "Reload Catalogue" : "Load Combined Catalogue"}
+            <Button type="submit" disabled={fetching} aria-busy={fetching}>
+              {fetching ? (
+                <>
+                  <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                  Fetching catalogue…
+                </>
+              ) : packages.length ? (
+                "Reload Catalogue"
+              ) : (
+                "Load Combined Catalogue"
+              )}
             </Button>
             <span className="text-muted-foreground ml-3 text-sm">
               {meta?.note ? String(meta.note) : ""}
@@ -193,7 +203,7 @@ export default function DataCataloguePage(): React.ReactElement {
         <CardHeader className="border-b py-3">
           <CardTitle className="admin-card-title">Step 2 — Find Package</CardTitle>
           <p className="text-muted-foreground text-xs">
-            Enter a price (e.g. "6") or a data size (e.g. "200MB", "1GB").
+            Enter a price (e.g. 6) or a data size (e.g. 200MB, 1GB).
           </p>
         </CardHeader>
         <CardContent className="space-y-3 py-4">
@@ -247,8 +257,15 @@ export default function DataCataloguePage(): React.ReactElement {
               </select>
             </div>
             <div className="flex items-end">
-              <Button type="submit" disabled={finding} className="w-full">
-                {finding ? "Searching…" : "Find Match"}
+              <Button type="submit" disabled={finding} aria-busy={finding} className="w-full">
+                {finding ? (
+                  <>
+                    <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                    Searching…
+                  </>
+                ) : (
+                  "Find Match"
+                )}
               </Button>
             </div>
           </form>

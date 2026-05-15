@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: "Seer Admin",
   description: "Seer administration panel",
   icons: {
-    icon: [{ url: "/logo.png", type: "image/png" }],
+    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
   },
 };
 

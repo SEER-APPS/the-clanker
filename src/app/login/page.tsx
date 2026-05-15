@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { loginFailureMessageForClient } from "@/lib/login-failure-message";
 
 export default function LoginPage(): React.ReactElement {
   const searchParams = useSearchParams();
@@ -31,11 +32,16 @@ export default function LoginPage(): React.ReactElement {
         errors?: Record<string, string[]>;
       };
       if (!res.ok || !body.success) {
-        const msg =
-          body.message ??
-          (body.errors ? Object.values(body.errors).flat().join(" ") : "Login failed.");
+        const msg = loginFailureMessageForClient(
+          res.status,
+          body.message ?? (body.errors ? Object.values(body.errors).flat().join(" ") : undefined),
+        );
         toast.error(msg);
-        setErrorMessage(msg);
+        if (res.status < 500) {
+          setErrorMessage(msg);
+        } else {
+          setErrorMessage(null);
+        }
         return;
       }
       const next = searchParams.get("next");
@@ -156,11 +162,21 @@ export default function LoginPage(): React.ReactElement {
           <Button
             type="submit"
             disabled={busy}
+            aria-busy={busy}
             className="h-auto w-full rounded-none bg-white px-3 py-3 text-[13px] font-semibold tracking-[0.02em] text-[#0a0a0a] hover:bg-[#e0e0e0]"
           >
             <span className="inline-flex items-center justify-center gap-2">
-              <span>Sign In</span>
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  <span>Signing in…</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </>
+              )}
             </span>
           </Button>
         </form>

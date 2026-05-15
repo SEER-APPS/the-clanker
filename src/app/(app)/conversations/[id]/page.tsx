@@ -4,6 +4,7 @@ import { use } from "react";
 import Link from "next/link";
 import { useGetConversationQuery } from "@/store/admin-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function ConversationDetailPage({
   params,
@@ -18,7 +19,7 @@ export default function ConversationDetailPage({
     return <p className="text-destructive text-sm">Invalid id.</p>;
   }
   if (isLoading) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <AdminDetailPageSkeleton />;
   }
   if (isError || !data?.conversation) {
     return <p className="text-destructive text-sm">Conversation not found.</p>;

@@ -23,6 +23,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
+import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 
 export default function HubtelTransactionsPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -188,33 +191,57 @@ export default function HubtelTransactionsPage(): React.ReactElement {
               variant="outline"
               size="sm"
               disabled={dBusy}
+              aria-busy={dBusy}
               onClick={() => {
                 void runBatch("delete");
               }}
             >
-              Batch delete
+              {dBusy ? (
+                <>
+                  <Loader2 className="mr-1 size-4 animate-spin" aria-hidden="true" />
+                  Deleting…
+                </>
+              ) : (
+                "Batch delete"
+              )}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={aBusy}
+              aria-busy={aBusy}
               onClick={() => {
                 void runBatch("archive");
               }}
             >
-              Batch archive
+              {aBusy ? (
+                <>
+                  <Loader2 className="mr-1 size-4 animate-spin" aria-hidden="true" />
+                  Archiving…
+                </>
+              ) : (
+                "Batch archive"
+              )}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={rBusy}
+              aria-busy={rBusy}
               onClick={() => {
                 void runBatch("refresh");
               }}
             >
-              Batch refresh status
+              {rBusy ? (
+                <>
+                  <Loader2 className="mr-1 size-4 animate-spin" aria-hidden="true" />
+                  Refreshing…
+                </>
+              ) : (
+                "Batch refresh status"
+              )}
             </Button>
           </div>
         </CardHeader>
@@ -222,68 +249,86 @@ export default function HubtelTransactionsPage(): React.ReactElement {
           {isError ? (
             <p className="text-destructive text-sm">Could not load transactions.</p>
           ) : null}
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all"
-                        checked={rows.length > 0 && selected.size === rows.length}
-                        onChange={(e) => {
-                          toggleAll(e.target.checked);
-                        }}
-                      />
-                    </TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => {
-                    const r = row as Record<string, unknown>;
-                    const id = Number(r.id);
-                    return (
-                      <TableRow key={id}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={selected.has(id)}
-                            onChange={(e) => {
-                              toggle(id, e.target.checked);
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          <Link
-                            href={`/services/hubtel/transactions/${id}`}
-                            className="text-primary hover:underline"
-                          >
-                            {id}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{String(r.product ?? "—")}</TableCell>
-                        <TableCell>{String(r.status ?? "—")}</TableCell>
-                        <TableCell>{String(r.amount ?? "—")}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="mt-4"
-                meta={txWrap?.meta}
-                page={page}
-                onPageChange={setPage}
-              />
-            </>
-          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all"
+                    disabled={isLoading}
+                    checked={!isLoading && rows.length > 0 && selected.size === rows.length}
+                    onChange={(e) => {
+                      toggleAll(e.target.checked);
+                    }}
+                  />
+                </TableHead>
+                <TableHead>Reference</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Recipient</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton
+                  rows={10}
+                  cellWidths={["w-8", "w-28", "w-20", "w-24", "w-16", "w-14"]}
+                />
+              ) : (
+                rows.map((row) => {
+                  const r = row as Record<string, unknown>;
+                  const id = Number(r.id);
+                  const uuid = String(r.uuid ?? "");
+                  const hrefKey = uuid || String(id);
+                  const displayStatus = String(r.display_status ?? r.status ?? "");
+                  const ref = String(r.client_reference ?? (uuid || id));
+                  return (
+                    <TableRow key={id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(id)}
+                          onChange={(e) => {
+                            toggle(id, e.target.checked);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="max-w-[220px]">
+                        <Link
+                          href={`/services/hubtel/transactions/${encodeURIComponent(hrefKey)}`}
+                          className="font-mono text-xs text-primary hover:underline"
+                        >
+                          {ref}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{String(r.product_label ?? r.product ?? "—")}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {String(r.recipient ?? "—")}
+                      </TableCell>
+                      <TableCell>
+                        <HubtelStatusBadge status={displayStatus} />
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {typeof r.amount === "number"
+                          ? `GHS ${r.amount.toFixed(2)}`
+                          : String(r.amount ?? "—")}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          {!isLoading ? (
+            <PaginationControls
+              className="mt-4"
+              meta={txWrap?.meta}
+              page={page}
+              onPageChange={setPage}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import {
   useGetUserQuery,
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function UserDetailPage({
   params,
@@ -26,6 +28,7 @@ export default function UserDetailPage({
   const [blockUser] = useBlockUserMutation();
   const [unblockUser] = useUnblockUserMutation();
   const [deleteUser] = useDeleteUserMutation();
+  const [pending, setPending] = useState<"block" | "unblock" | "delete" | null>(null);
 
   const user = data?.user as Record<string, unknown> | undefined;
   const blocked = Boolean(user?.is_blocked);
@@ -34,6 +37,7 @@ export default function UserDetailPage({
     if (action === "delete" && !window.confirm("Delete this user permanently?")) {
       return;
     }
+    setPending(action);
     try {
       if (action === "block") {
         await blockUser(uuid).unwrap();
@@ -54,6 +58,8 @@ export default function UserDetailPage({
           ? String((e as { data?: { message?: string } }).data?.message ?? "Action failed.")
           : "Action failed.";
       toast.error(msg);
+    } finally {
+      setPending(null);
     }
   }
 
@@ -62,7 +68,7 @@ export default function UserDetailPage({
   }
 
   if (isLoading) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <AdminDetailPageSkeleton />;
   }
 
   if (isError || !user) {
@@ -88,31 +94,58 @@ export default function UserDetailPage({
             <Button
               type="button"
               variant="outline"
+              disabled={pending !== null}
+              aria-busy={pending === "unblock"}
               onClick={() => {
                 void run("unblock");
               }}
             >
-              Unblock
+              {pending === "unblock" ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  …
+                </>
+              ) : (
+                "Unblock"
+              )}
             </Button>
           ) : (
             <Button
               type="button"
               variant="outline"
+              disabled={pending !== null}
+              aria-busy={pending === "block"}
               onClick={() => {
                 void run("block");
               }}
             >
-              Block
+              {pending === "block" ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  …
+                </>
+              ) : (
+                "Block"
+              )}
             </Button>
           )}
           <Button
             type="button"
             variant="destructive"
+            disabled={pending !== null}
+            aria-busy={pending === "delete"}
             onClick={() => {
               void run("delete");
             }}
           >
-            Delete
+            {pending === "delete" ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                …
+              </>
+            ) : (
+              "Delete"
+            )}
           </Button>
         </div>
       </header>

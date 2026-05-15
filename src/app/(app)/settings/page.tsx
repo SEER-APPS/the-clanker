@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AdminSettingsPageSkeleton } from "@/components/admin/admin-loading-skeletons";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -16,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 export default function SettingsPage(): React.ReactElement {
   const { data, isLoading, refetch } = useGetSettingsQuery();
@@ -31,6 +33,7 @@ export default function SettingsPage(): React.ReactElement {
 
   const admin = data?.admin;
   const router = useRouter();
+  const [sessionBusy, setSessionBusy] = useState(false);
 
   type SettingsTabId = "profile" | "photo" | "password" | "account";
   const TABS: Array<{ id: SettingsTabId; label: string; description: string }> = [
@@ -127,6 +130,7 @@ export default function SettingsPage(): React.ReactElement {
 
   async function signOutEverywhere(): Promise<void> {
     try {
+      setSessionBusy(true);
       const res = await fetch("/api/admin/auth/logout", { method: "POST" });
       if (!res.ok) {
         toast.error("Sign out failed.");
@@ -136,11 +140,13 @@ export default function SettingsPage(): React.ReactElement {
       router.replace("/login");
     } catch {
       toast.error("Sign out failed.");
+    } finally {
+      setSessionBusy(false);
     }
   }
 
   if (isLoading || !admin) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <AdminSettingsPageSkeleton />;
   }
 
   return (
@@ -229,8 +235,15 @@ export default function SettingsPage(): React.ReactElement {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <Button type="submit" disabled={pBusy}>
-                      {pBusy ? "Saving…" : "Save Profile"}
+                    <Button type="submit" disabled={pBusy} aria-busy={pBusy}>
+                      {pBusy ? (
+                        <>
+                          <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save Profile"
+                      )}
                     </Button>
                   </div>
                 </form>
@@ -267,11 +280,19 @@ export default function SettingsPage(): React.ReactElement {
                         type="button"
                         variant="ghost"
                         disabled={rmBusy}
+                        aria-busy={rmBusy}
                         onClick={() => {
                           void onRemovePhoto();
                         }}
                       >
-                        {rmBusy ? "Removing…" : "Remove photo"}
+                        {rmBusy ? (
+                          <>
+                            <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                            Removing…
+                          </>
+                        ) : (
+                          "Remove photo"
+                        )}
                       </Button>
                     ) : null}
                   </div>
@@ -287,8 +308,15 @@ export default function SettingsPage(): React.ReactElement {
                 >
                   <Input name="photo" type="file" accept="image/jpeg,image/png,image/webp" />
                   <div>
-                    <Button type="submit" disabled={phBusy}>
-                      {phBusy ? "Uploading…" : "Upload Photo"}
+                    <Button type="submit" disabled={phBusy} aria-busy={phBusy}>
+                      {phBusy ? (
+                        <>
+                          <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                          Uploading…
+                        </>
+                      ) : (
+                        "Upload Photo"
+                      )}
                     </Button>
                   </div>
                 </form>
@@ -344,8 +372,15 @@ export default function SettingsPage(): React.ReactElement {
                       required
                     />
                   </div>
-                  <Button type="submit" disabled={pwBusy}>
-                    {pwBusy ? "Updating…" : "Update Password"}
+                  <Button type="submit" disabled={pwBusy} aria-busy={pwBusy}>
+                    {pwBusy ? (
+                      <>
+                        <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                        Updating…
+                      </>
+                    ) : (
+                      "Update Password"
+                    )}
                   </Button>
                 </form>
               </CardContent>
@@ -388,11 +423,20 @@ export default function SettingsPage(): React.ReactElement {
                   <Button
                     type="button"
                     variant="destructive"
+                    disabled={sessionBusy}
+                    aria-busy={sessionBusy}
                     onClick={() => {
                       void signOutEverywhere();
                     }}
                   >
-                    Sign Out Everywhere
+                    {sessionBusy ? (
+                      <>
+                        <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                        Signing out…
+                      </>
+                    ) : (
+                      "Sign Out Everywhere"
+                    )}
                   </Button>
                 </CardContent>
               </Card>

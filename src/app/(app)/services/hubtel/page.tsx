@@ -14,6 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
+import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 
 export default function HubtelSummaryPage(): React.ReactElement {
   const { data, isLoading, isError } = useGetHubtelSummaryQuery();
@@ -32,19 +35,19 @@ export default function HubtelSummaryPage(): React.ReactElement {
             href="/balances"
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            Provider Balances →
+            Provider Balances
           </Link>
           <Link
             href="/services/hubtel/transactions"
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            All transactions →
+            All transactions
           </Link>
           <Link
             href="/services/hubtel/tests"
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            Tools →
+            Tools
           </Link>
         </div>
       </header>
@@ -54,7 +57,48 @@ export default function HubtelSummaryPage(): React.ReactElement {
       ) : null}
 
       {isLoading || !data ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <>
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full max-w-2xl" />
+          </div>
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <Card key={i} className="rounded-none p-3">
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="mt-2 h-3 w-28" />
+              </Card>
+            ))}
+          </section>
+          <Card className="rounded-none">
+            <CardHeader className="flex flex-row items-center justify-between border-b py-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-8 w-20" />
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Recipient</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Commission</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>When</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <AdminTableBodySkeleton
+                      rows={6}
+                      cellWidths={["w-32", "w-24", "w-20", "w-16", "w-16", "w-14", "w-24"]}
+                    />
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       ) : (
         <>
           {data.isConfigured ? (
@@ -71,7 +115,9 @@ export default function HubtelSummaryPage(): React.ReactElement {
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900">
               <strong>Hubtel not fully configured.</strong> Set{" "}
               <code>HUBTEL_API_ID</code>, <code>HUBTEL_API_KEY</code>, and{" "}
-              <code>HUBTEL_PREPAID_DEPOSIT_ID</code> in <code>.env</code>.
+              <code>HUBTEL_PREPAID_DEPOSIT_ID</code> in{" "}
+              <code>seer-platform/.env</code>, then restart <strong>core</strong> (and proxy if
+              you use port 4004).
             </div>
           )}
 
@@ -92,7 +138,7 @@ export default function HubtelSummaryPage(): React.ReactElement {
                 href="/services/hubtel/transactions"
                 className={buttonVariants({ variant: "ghost", size: "sm" })}
               >
-                View all →
+                View all
               </Link>
             </CardHeader>
             <CardContent className="p-0">
@@ -113,13 +159,15 @@ export default function HubtelSummaryPage(): React.ReactElement {
                     {recent.length ? (
                       recent.map((row) => {
                         const r = row as Record<string, unknown>;
+                        const uuid = String(r.uuid ?? "");
                         const id = String(r.id ?? "");
+                        const hrefKey = uuid || id;
                         const product = String(r.product ?? "");
                         const ref = String(r.client_reference ?? "");
                         const recipient = String(r.recipient ?? "—");
                         const amount = Number(r.amount ?? 0);
                         const commission = r.commission == null ? null : Number(r.commission);
-                        const status = String(r.status ?? "");
+                        const status = String(r.display_status ?? r.status ?? "");
                         const when = String(r.created_human ?? r.created_at ?? "—");
 
                         return (
@@ -130,7 +178,7 @@ export default function HubtelSummaryPage(): React.ReactElement {
                                   <Badge variant="gray">{product.replaceAll("_", " ")}</Badge>
                                 ) : null}
                                 <Link
-                                  href={`/services/hubtel/transactions/${encodeURIComponent(id)}`}
+                                  href={`/services/hubtel/transactions/${encodeURIComponent(hrefKey)}`}
                                   className="font-mono text-[11px] text-primary hover:underline"
                                 >
                                   {ref || `#${id}`}
@@ -148,15 +196,7 @@ export default function HubtelSummaryPage(): React.ReactElement {
                                 : "—"}
                             </TableCell>
                             <TableCell>
-                              {status === "success" ? (
-                                <Badge variant="white">Success</Badge>
-                              ) : status === "failed" ? (
-                                <Badge variant="dark">Failed</Badge>
-                              ) : status === "pending" ? (
-                                <Badge variant="gray">Pending</Badge>
-                              ) : (
-                                <Badge variant="gray">{status || "—"}</Badge>
-                              )}
+                              <HubtelStatusBadge status={status} />
                             </TableCell>
                             <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                               {when}

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function SchoolFeeDetailPage({
   params,
@@ -43,7 +45,7 @@ export default function SchoolFeeDetailPage({
     return <p className="text-destructive text-sm">Invalid id.</p>;
   }
   if (isLoading) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <AdminDetailPageSkeleton />;
   }
   if (isError || !row) {
     return <p className="text-destructive text-sm">Not found.</p>;
@@ -93,11 +95,15 @@ export default function SchoolFeeDetailPage({
                 required
               />
             </div>
-            <Button
-              type="submit"
-              disabled={busy}
-            >
-              Save
+            <Button type="submit" disabled={busy} aria-busy={busy}>
+              {busy ? (
+                <>
+                  <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                  Saving…
+                </>
+              ) : (
+                "Save"
+              )}
             </Button>
           </form>
         </CardContent>

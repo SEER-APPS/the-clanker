@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function AnalyticsFailuresPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -92,41 +93,49 @@ export default function AnalyticsFailuresPage(): React.ReactElement {
           <CardTitle className="text-base">Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Recipient</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(list?.items ?? []).map((row) => {
-                    const r = row as Record<string, unknown>;
-                    return (
-                      <TableRow key={String(r.id)}>
-                        <TableCell className="font-mono text-xs">{String(r.id)}</TableCell>
-                        <TableCell>{String(r.product ?? "—")}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {String(r.recipient ?? "—")}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="mt-4"
-                meta={list?.meta}
-                page={page}
-                onPageChange={setPage}
-              />
-            </>
-          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Recipient</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton rows={8} cellWidths={["w-14", "w-20", "w-28"]} />
+              ) : (list?.items ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-muted-foreground py-8 text-center text-sm">
+                    No failed Reloadly transactions found. On a fresh Prisma database the{" "}
+                    <code className="text-xs">reloadly_transactions</code> table may not exist yet —
+                    failures will appear once that table is migrated and transactions fail.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                (list?.items ?? []).map((row) => {
+                  const r = row as Record<string, unknown>;
+                  return (
+                    <TableRow key={String(r.id)}>
+                      <TableCell className="font-mono text-xs">{String(r.id)}</TableCell>
+                      <TableCell>{String(r.product ?? "—")}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {String(r.recipient ?? "—")}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          {!isLoading ? (
+            <PaginationControls
+              className="mt-4"
+              meta={list?.meta}
+              page={page}
+              onPageChange={setPage}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

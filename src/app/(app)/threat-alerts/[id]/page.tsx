@@ -4,6 +4,7 @@ import { use } from "react";
 import Link from "next/link";
 import { useGetThreatAlertQuery } from "@/store/admin-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function ThreatAlertDetailPage({
   params,
@@ -11,14 +12,14 @@ export default function ThreatAlertDetailPage({
   params: Promise<{ id: string }>;
 }): React.ReactElement {
   const { id: raw } = use(params);
-  const id = Number(raw);
-  const { data, isLoading, isError } = useGetThreatAlertQuery(id, { skip: !Number.isFinite(id) });
+  const id = raw.trim();
+  const { data, isLoading, isError } = useGetThreatAlertQuery(id, { skip: id.length < 1 });
 
-  if (!Number.isFinite(id)) {
+  if (!id) {
     return <p className="text-destructive text-sm">Invalid id.</p>;
   }
   if (isLoading) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <AdminDetailPageSkeleton />;
   }
   if (isError || !data?.alert) {
     return <p className="text-destructive text-sm">Alert not found.</p>;

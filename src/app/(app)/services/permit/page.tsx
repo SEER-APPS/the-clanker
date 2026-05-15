@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function PermitPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -30,45 +31,45 @@ export default function PermitPage(): React.ReactElement {
       ) : null}
       <Card>
         <CardContent className="pt-6">
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(list?.items ?? []).map((row) => {
-                    const r = row as Record<string, unknown>;
-                    const id = Number(r.id);
-                    return (
-                      <TableRow key={id}>
-                        <TableCell>
-                          <Link
-                            href={`/services/permit/${id}`}
-                            className="text-primary font-mono text-xs hover:underline"
-                          >
-                            {id}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{String(r.status ?? "—")}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="mt-4"
-                meta={list?.meta}
-                page={page}
-                onPageChange={setPage}
-              />
-            </>
-          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton rows={8} cellWidths={["w-14", "w-24"]} />
+              ) : (
+                (list?.items ?? []).map((row) => {
+                  const r = row as Record<string, unknown>;
+                  const id = Number(r.id);
+                  return (
+                    <TableRow key={id}>
+                      <TableCell>
+                        <Link
+                          href={`/services/permit/${id}`}
+                          className="text-primary font-mono text-xs hover:underline"
+                        >
+                          {id}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{String(r.status ?? "—")}</TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          {!isLoading ? (
+            <PaginationControls
+              className="mt-4"
+              meta={list?.meta}
+              page={page}
+              onPageChange={setPage}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

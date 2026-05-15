@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 type NetworkRow = {
   slug: string;
@@ -90,7 +91,7 @@ export default function ServiceTestsPage(): React.ReactElement {
     try {
       const res = await bundles({ operator_id: Number(operatorId) }).unwrap();
       setOut(res);
-      const raw = (res as BundlesResponse | undefined)?.data;
+      const raw = Array.isArray(res) ? res : (res as BundlesResponse | undefined)?.data;
       setBundleList(normalizeBundles(raw));
       toast.success("Bundles loaded.");
     } catch (err: unknown) {
@@ -133,11 +134,19 @@ export default function ServiceTestsPage(): React.ReactElement {
             type="button"
             variant="ghost"
             disabled={catalogBusy}
+            aria-busy={catalogBusy}
             onClick={() => {
               setCatalogOpen(true);
             }}
           >
-            {catalogBusy ? "Loading…" : "Load live catalog"}
+            {catalogBusy ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                Fetching…
+              </>
+            ) : (
+              "Load live catalog"
+            )}
           </Button>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -256,8 +265,16 @@ export default function ServiceTestsPage(): React.ReactElement {
               type="submit"
               className="md:col-span-2"
               disabled={aBusy}
+              aria-busy={aBusy}
             >
-              {aBusy ? "Running…" : "Run airtime test"}
+              {aBusy ? (
+                <>
+                  <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                  Running…
+                </>
+              ) : (
+                "Run airtime test"
+              )}
             </Button>
           </form>
         </CardContent>
@@ -310,11 +327,19 @@ export default function ServiceTestsPage(): React.ReactElement {
             <Button
               type="button"
               disabled={bBusy}
+              aria-busy={bBusy}
               onClick={(e) => {
                 void runBundles(e as unknown as React.FormEvent);
               }}
             >
-              {bBusy ? "Loading…" : "Load bundles"}
+              {bBusy ? (
+                <>
+                  <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                  Fetching bundles…
+                </>
+              ) : (
+                "Load bundles"
+              )}
             </Button>
           </div>
 
@@ -438,8 +463,16 @@ export default function ServiceTestsPage(): React.ReactElement {
               type="submit"
               className="md:col-span-2"
               disabled={dBusy}
+              aria-busy={dBusy}
             >
-              {dBusy ? "Running…" : "Run data test purchase"}
+              {dBusy ? (
+                <>
+                  <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                  Running…
+                </>
+              ) : (
+                "Run data test purchase"
+              )}
             </Button>
           </form>
         </CardContent>

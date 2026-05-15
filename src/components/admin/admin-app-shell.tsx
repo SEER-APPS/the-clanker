@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { ADMIN_NAV_GROUPS, ADMIN_SUPER_NAV_ITEM } from "@/lib/admin-nav";
 import { useGetMeQuery } from "@/store/admin-api";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
   Ticket,
   Users,
   Wallet,
+  Loader2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -129,10 +131,19 @@ export function AdminAppShell({
   const pathname = usePathname();
   const { data: me } = useGetMeQuery();
   const activeHref = getActiveNavHref(pathname);
+  const [signingOut, setSigningOut] = useState(false);
 
   async function logout(): Promise<void> {
-    await fetch("/api/admin/auth/logout", { method: "POST", credentials: "same-origin" });
-    window.location.href = "/login";
+    try {
+      setSigningOut(true);
+      await fetch("/api/admin/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      window.location.href = "/login";
+    } catch {
+      setSigningOut(false);
+    }
   }
 
   const adminName = me?.admin.name ?? "Admin";
@@ -234,12 +245,24 @@ export function AdminAppShell({
           <Button
             type="button"
             variant="ghost"
+            disabled={signingOut}
+            aria-busy={signingOut}
             className="w-full bg-transparent text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border border-gray-700 rounded-none"
             onClick={() => {
               void logout();
             }}
           >
-            Sign out
+            {signingOut ? (
+              <>
+                <Loader2
+                  className="mr-2 inline size-4 animate-spin"
+                  aria-hidden="true"
+                />
+                Signing out…
+              </>
+            ) : (
+              "Sign out"
+            )}
           </Button>
         </SidebarFooter>
       </Sidebar>

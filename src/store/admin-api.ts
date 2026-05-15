@@ -60,8 +60,8 @@ export const adminApi = createApi({
       query: (params) => ({ url: "/threat-alerts", params }),
       providesTags: ["ThreatAlerts"],
     }),
-    getThreatAlert: builder.query<{ alert: Record<string, unknown> }, number>({
-      query: (id) => `/threat-alerts/${id}`,
+    getThreatAlert: builder.query<{ alert: Record<string, unknown> }, string>({
+      query: (id) => `/threat-alerts/${encodeURIComponent(id)}`,
       providesTags: (_r, _e, id) => [{ type: "ThreatAlerts", id }],
     }),
     getConversations: builder.query<Paginated<Record<string, unknown>>, { page?: number; type?: string }>(
@@ -89,6 +89,13 @@ export const adminApi = createApi({
         return raw as Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> };
       },
       providesTags: ["Notifications"],
+    }),
+    sendAdminNotification: builder.mutation<
+      { success?: boolean; data?: Record<string, unknown>; message?: string },
+      Record<string, unknown>
+    >({
+      query: (body) => ({ url: "/notifications/send", method: "POST", body }),
+      invalidatesTags: ["Notifications"],
     }),
     getReloadlyAirtime: builder.query<Record<string, unknown>, { page?: number }>({
       query: (params) => ({ url: "/services/reloadly/airtime", params }),
@@ -282,7 +289,13 @@ export const adminApi = createApi({
       providesTags: ["Hubtel"],
     }),
     getHubtelTransaction: builder.query<Record<string, unknown>, string | number>({
-      query: (id) => `/services/hubtel/transactions/${id}`,
+      query: (id) => {
+        const raw = String(id);
+        const isNumericId = /^\d+$/.test(raw);
+        return isNumericId
+          ? `/services/hubtel/transactions/${raw}`
+          : `/services/hubtel/transactions/uuid/${encodeURIComponent(raw)}`;
+      },
       transformResponse: (raw: unknown) => {
         if (raw && typeof raw === "object" && "data" in raw) {
           const d = (raw as { data?: unknown }).data;
@@ -295,21 +308,48 @@ export const adminApi = createApi({
       providesTags: (_r, _e, id) => [{ type: "Hubtel", id: String(id) }],
     }),
     deleteHubtelTransaction: builder.mutation<unknown, string | number>({
-      query: (id) => ({ url: `/services/hubtel/transactions/${id}`, method: "DELETE" }),
+      query: (id) => {
+        const raw = String(id);
+        const isNumericId = /^\d+$/.test(raw);
+        return isNumericId
+          ? { url: `/services/hubtel/transactions/${raw}`, method: "DELETE" }
+          : {
+              url: `/services/hubtel/transactions/uuid/${encodeURIComponent(raw)}`,
+              method: "DELETE",
+            };
+      },
       invalidatesTags: ["Hubtel"],
     }),
     archiveHubtelTransaction: builder.mutation<unknown, string | number>({
-      query: (id) => ({
-        url: `/services/hubtel/transactions/${id}/archive`,
-        method: "POST",
-      }),
+      query: (id) => {
+        const raw = String(id);
+        const isNumericId = /^\d+$/.test(raw);
+        return isNumericId
+          ? {
+              url: `/services/hubtel/transactions/${raw}/archive`,
+              method: "POST",
+            }
+          : {
+              url: `/services/hubtel/transactions/uuid/${encodeURIComponent(raw)}/archive`,
+              method: "POST",
+            };
+      },
       invalidatesTags: ["Hubtel"],
     }),
     refreshHubtelTransaction: builder.mutation<unknown, string | number>({
-      query: (id) => ({
-        url: `/services/hubtel/transactions/${id}/refresh-status`,
-        method: "POST",
-      }),
+      query: (id) => {
+        const raw = String(id);
+        const isNumericId = /^\d+$/.test(raw);
+        return isNumericId
+          ? {
+              url: `/services/hubtel/transactions/${raw}/refresh-status`,
+              method: "POST",
+            }
+          : {
+              url: `/services/hubtel/transactions/uuid/${encodeURIComponent(raw)}/refresh-status`,
+              method: "POST",
+            };
+      },
       invalidatesTags: ["Hubtel"],
     }),
     hubtelBatchDelete: builder.mutation<unknown, { ids: number[] }>({
@@ -345,7 +385,26 @@ export const adminApi = createApi({
     hubtelTestAirtime: builder.mutation<unknown, Record<string, unknown>>({
       query: (body) => ({ url: "/services/hubtel/tests/airtime", method: "POST", body }),
     }),
-    hubtelQueryBundles: builder.mutation<unknown, Record<string, unknown>>({
+    hubtelLabConfig: builder.query<
+      { prefetch_phone: string | null; hubtel_configured: boolean },
+      void
+    >({
+      query: () => "/services/hubtel/lab-config",
+    }),
+    hubtelQueryBundles: builder.mutation<
+      {
+        destination: string;
+        network: string;
+        bundles: Array<{
+          bundleId: string;
+          displayName: string;
+          amountGhs: number;
+          listKey: string;
+        }>;
+        bundle_count: number;
+      },
+      { destination?: string; network: string }
+    >({
       query: (body) => ({ url: "/services/hubtel/query/bundles", method: "POST", body }),
     }),
     hubtelTestDataBundle: builder.mutation<unknown, Record<string, unknown>>({
@@ -371,6 +430,21 @@ export const adminApi = createApi({
     }),
     hubtelSyncPending: builder.mutation<unknown, void>({
       query: () => ({ url: "/services/hubtel/sync-pending", method: "POST" }),
+    }),
+    serviceOrderVerify: builder.mutation<unknown, { phone: string; network?: string | null }>({
+      query: (body) => ({ url: "/services/order/verify", method: "POST", body }),
+    }),
+    serviceOrderCreate: builder.mutation<unknown, Record<string, unknown>>({
+      query: (body) => ({ url: "/services/order", method: "POST", body }),
+    }),
+    serviceOrderStatus: builder.query<unknown, { uuid: string }>({
+      query: ({ uuid }) => ({ url: `/services/order/${uuid}` }),
+    }),
+    serviceOrderLookupByCheckout: builder.query<unknown, { checkoutId: string }>({
+      query: ({ checkoutId }) => ({ url: `/services/order/by-checkout/${checkoutId}` }),
+    }),
+    servicePaymentStatusByCheckout: builder.query<unknown, { checkoutId: string }>({
+      query: ({ checkoutId }) => ({ url: `/services/payment-status/${checkoutId}` }),
     }),
     getSettings: builder.query<{ admin: AdminMe }, void>({
       query: () => "/settings",
@@ -429,6 +503,7 @@ export const {
   useGetConversationsQuery,
   useGetConversationQuery,
   useGetNotificationsQuery,
+  useSendAdminNotificationMutation,
   useGetReloadlyAirtimeQuery,
   useGetReloadlyPrepaidQuery,
   useGetReloadlyOperatorsQuery,
@@ -471,6 +546,7 @@ export const {
   useHubtelTestSmsMutation,
   useHubtelTestSmsBatchMutation,
   useHubtelTestAirtimeMutation,
+  useHubtelLabConfigQuery,
   useHubtelQueryBundlesMutation,
   useHubtelTestDataBundleMutation,
   useHubtelQueryUtilityMutation,
@@ -480,6 +556,12 @@ export const {
   useHubtelStatusCheckMutation,
   useHubtelRefundMutation,
   useHubtelSyncPendingMutation,
+  useServiceOrderVerifyMutation,
+  useServiceOrderCreateMutation,
+  useServiceOrderStatusQuery,
+  useLazyServiceOrderStatusQuery,
+  useLazyServiceOrderLookupByCheckoutQuery,
+  useLazyServicePaymentStatusByCheckoutQuery,
   useGetSettingsQuery,
   useUpdateProfileMutation,
   useUpdatePasswordMutation,

@@ -8,9 +8,11 @@ import {
   useArchiveHubtelTransactionMutation,
   useRefreshHubtelTransactionMutation,
 } from "@/store/admin-api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
+import { HubtelTransactionDetailView } from "@/components/hubtel/hubtel-transaction-detail-view";
 
 export default function HubtelTransactionDetailPage({
   params,
@@ -59,7 +61,7 @@ export default function HubtelTransactionDetailPage({
   }
 
   if (isLoading) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <AdminDetailPageSkeleton />;
   }
   if (isError || !tx) {
     return <p className="text-destructive text-sm">Not found.</p>;
@@ -76,7 +78,7 @@ export default function HubtelTransactionDetailPage({
             Back to list
           </Link>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Transaction #{String(tx.id)}
+            Transaction {String(tx.uuid ?? `#${tx.id}`)}
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -84,44 +86,59 @@ export default function HubtelTransactionDetailPage({
             type="button"
             variant="outline"
             disabled={rfBusy}
+            aria-busy={rfBusy}
             onClick={() => {
               void onRefresh();
             }}
           >
-            Refresh status
+            {rfBusy ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                Refreshing…
+              </>
+            ) : (
+              "Refresh status"
+            )}
           </Button>
           <Button
             type="button"
             variant="outline"
             disabled={arBusy}
+            aria-busy={arBusy}
             onClick={() => {
               void onArchive();
             }}
           >
-            Archive
+            {arBusy ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                Archiving…
+              </>
+            ) : (
+              "Archive"
+            )}
           </Button>
           <Button
             type="button"
             variant="destructive"
             disabled={rmBusy}
+            aria-busy={rmBusy}
             onClick={() => {
               void onDelete();
             }}
           >
-            Delete
+            {rmBusy ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                Deleting…
+              </>
+            ) : (
+              "Delete"
+            )}
           </Button>
         </div>
       </header>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Payload</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <pre className="bg-muted max-h-[520px] overflow-auto rounded-md p-3 font-mono text-xs">
-            {JSON.stringify(tx, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
+      <HubtelTransactionDetailView tx={tx} />
     </article>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -25,7 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 as LoaderSpin } from "lucide-react";
 
 export default function StaffAdminsPage(): React.ReactElement {
   const { data: me } = useGetMeQuery();
@@ -33,13 +34,15 @@ export default function StaffAdminsPage(): React.ReactElement {
     skip: !me?.admin.is_super_admin,
   });
   const [create, { isLoading: cBusy }] = useCreateStaffAdminMutation();
-  const [changeRole, { isLoading: rBusy }] = useChangeStaffRoleMutation();
-  const [remove, { isLoading: dBusy }] = useDeleteStaffAdminMutation();
+  const [changeRole] = useChangeStaffRoleMutation();
+  const [remove] = useDeleteStaffAdminMutation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [open, setOpen] = useState(false);
+  const [rolePendingId, setRolePendingId] = useState<number | null>(null);
+  const [removePendingId, setRemovePendingId] = useState<number | null>(null);
 
   if (!me?.admin.is_super_admin) {
     return (
@@ -177,8 +180,15 @@ export default function StaffAdminsPage(): React.ReactElement {
               </div>
 
               <div className="flex flex-wrap gap-2 pt-1">
-                <Button type="submit" disabled={cBusy}>
-                  {cBusy ? "Creating…" : "Create Admin Account"}
+                <Button type="submit" disabled={cBusy} aria-busy={cBusy}>
+                  {cBusy ? (
+                    <>
+                      <LoaderSpin className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                      Creating…
+                    </>
+                  ) : (
+                    "Create Admin Account"
+                  )}
                 </Button>
                 <DialogClose
                   render={
@@ -202,23 +212,27 @@ export default function StaffAdminsPage(): React.ReactElement {
           <CardTitle className="admin-card-title">Accounts</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <p className="text-muted-foreground p-6 text-sm">Loading…</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>#</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Last login</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {admins.map((a) => {
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Last login</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton
+                  rows={6}
+                  cellWidths={["w-10", "w-32", "w-36", "w-20", "w-24", "w-24", "w-16"]}
+                />
+              ) : (
+                <>
+                  {admins.map((a) => {
                   const id = Number(a.id);
                   const isSuper = Boolean(a.is_super_admin);
                   const isSelf = id === Number(me?.admin.id);
@@ -277,42 +291,80 @@ export default function StaffAdminsPage(): React.ReactElement {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              disabled={rBusy}
+                              disabled={rolePendingId !== null || removePendingId !== null}
+                              aria-busy={rolePendingId === id}
                               onClick={() => {
                                 void (async () => {
+                                  setRolePendingId(id);
                                   try {
                                     await changeRole(id).unwrap();
                                     toast.success(isSuper ? "Demoted." : "Promoted.");
                                     void refetch();
                                   } catch (err) {
                                     toast.error(parseErr(err));
+                                  } finally {
+                                    setRolePendingId(null);
                                   }
                                 })();
                               }}
                             >
-                              {isSuper ? "Demote" : "Promote"}
+                              {rolePendingId === id ? (
+                                <>
+                                  <LoaderSpin
+                                    className="mr-2 size-4 animate-spin"
+                                    aria-hidden="true"
+                                  />
+                                  …
+                                </>
+                              ) : isSuper ? (
+                                "Demote"
+                              ) : (
+                                "Promote"
+                              )}
                             </Button>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              disabled={dBusy || isSuper}
+                              disabled={
+                                removePendingId !== null ||
+                                rolePendingId !== null ||
+                                isSuper
+                              }
+                              aria-busy={removePendingId === id}
                               onClick={() => {
-                                if (!window.confirm(`Remove ${String(a.name ?? "this admin")}'s admin access?`)) {
+                                if (
+                                  !window.confirm(
+                                    `Remove ${String(a.name ?? "this admin")}'s admin access?`,
+                                  )
+                                ) {
                                   return;
                                 }
                                 void (async () => {
+                                  setRemovePendingId(id);
                                   try {
                                     await remove(id).unwrap();
                                     toast.success("Removed.");
                                     void refetch();
                                   } catch (err) {
                                     toast.error(parseErr(err));
+                                  } finally {
+                                    setRemovePendingId(null);
                                   }
                                 })();
                               }}
                             >
-                              Remove
+                              {removePendingId === id ? (
+                                <>
+                                  <LoaderSpin
+                                    className="mr-2 size-4 animate-spin"
+                                    aria-hidden="true"
+                                  />
+                                  …
+                                </>
+                              ) : (
+                                "Remove"
+                              )}
                             </Button>
                           </div>
                         )}
@@ -320,16 +372,17 @@ export default function StaffAdminsPage(): React.ReactElement {
                     </TableRow>
                   );
                 })}
-                {!admins.length ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-muted-foreground py-10 text-center">
-                      No admin accounts yet.
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          )}
+                  {!admins.length ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-muted-foreground py-10 text-center">
+                        No admin accounts yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </article>

@@ -50,6 +50,8 @@ export async function proxyToLaravel(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
+  headers.set("X-Seer-Admin-Origin", req.nextUrl.origin);
+
   const init: RequestInit & { duplex?: "half" } = {
     method,
     headers,

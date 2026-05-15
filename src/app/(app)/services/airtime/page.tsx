@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import {
   Dialog,
   DialogContent,
@@ -239,23 +240,26 @@ export default function AirtimePage(): React.ReactElement {
           <CardTitle className="admin-card-title">Transactions</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <p className="text-muted-foreground p-6 text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader className="admin-table-heavy-divider">
-                  <TableRow>
-                    <TableHead className="admin-table-head">#</TableHead>
-                    <TableHead className="admin-table-head">User</TableHead>
-                    <TableHead className="admin-table-head">Recipient</TableHead>
-                    <TableHead className="admin-table-head">Operator</TableHead>
-                    <TableHead className="admin-table-head">Amount</TableHead>
-                    <TableHead className="admin-table-head">Status</TableHead>
-                    <TableHead className="admin-table-head">When</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+          <Table>
+            <TableHeader className="admin-table-heavy-divider">
+              <TableRow>
+                <TableHead className="admin-table-head">#</TableHead>
+                <TableHead className="admin-table-head">User</TableHead>
+                <TableHead className="admin-table-head">Recipient</TableHead>
+                <TableHead className="admin-table-head">Operator</TableHead>
+                <TableHead className="admin-table-head">Amount</TableHead>
+                <TableHead className="admin-table-head">Status</TableHead>
+                <TableHead className="admin-table-head">When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton
+                  rows={8}
+                  cellWidths={["w-12", "w-28", "w-24", "w-16", "w-20", "w-16", "w-24"]}
+                />
+              ) : (
+                <>
                   {(txBlock?.items ?? []).map((row) => {
                     const r = row as Record<string, unknown>;
                     const user = (r.user ?? null) as
@@ -308,16 +312,18 @@ export default function AirtimePage(): React.ReactElement {
                       </TableCell>
                     </TableRow>
                   ) : null}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="p-4"
-                meta={txBlock?.meta}
-                page={page}
-                onPageChange={setPage}
-              />
-            </>
-          )}
+                </>
+              )}
+            </TableBody>
+          </Table>
+          {!isLoading ? (
+            <PaginationControls
+              className="p-4"
+              meta={txBlock?.meta}
+              page={page}
+              onPageChange={setPage}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

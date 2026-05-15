@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 
 export default function PrepaidPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -35,43 +36,43 @@ export default function PrepaidPage(): React.ReactElement {
           <CardTitle className="text-base">Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Recipient</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(txBlock?.items ?? []).map((row) => {
-                    const r = row as Record<string, unknown>;
-                    return (
-                      <TableRow key={String(r.id)}>
-                        <TableCell className="font-mono text-xs">{String(r.id)}</TableCell>
-                        <TableCell>{String(r.status ?? "—")}</TableCell>
-                        <TableCell>{String(r.amount ?? "—")}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {String(r.recipient_phone ?? "—")}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                className="mt-4"
-                meta={txBlock?.meta}
-                page={page}
-                onPageChange={setPage}
-              />
-            </>
-          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Recipient</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <AdminTableBodySkeleton rows={8} cellWidths={["w-14", "w-20", "w-14", "w-28"]} />
+              ) : (
+                (txBlock?.items ?? []).map((row) => {
+                  const r = row as Record<string, unknown>;
+                  return (
+                    <TableRow key={String(r.id)}>
+                      <TableCell className="font-mono text-xs">{String(r.id)}</TableCell>
+                      <TableCell>{String(r.status ?? "—")}</TableCell>
+                      <TableCell>{String(r.amount ?? "—")}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {String(r.recipient_phone ?? "—")}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          {!isLoading ? (
+            <PaginationControls
+              className="mt-4"
+              meta={txBlock?.meta}
+              page={page}
+              onPageChange={setPage}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </article>

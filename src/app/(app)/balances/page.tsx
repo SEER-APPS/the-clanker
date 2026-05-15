@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Loader2 } from "lucide-react";
 
 type BalancesPayload = {
   hubtelSpent?: number;
@@ -53,8 +54,13 @@ type RecentOrder = {
 
 export default function BalancesPage(): React.ReactElement {
   const { data: summary, isLoading } = useGetBalancesQuery();
-  const { data: reloadly, refetch: refetchReloadly } = useGetReloadlyBalanceQuery();
-  const { data: hubtelBalance, refetch: refetchHubtelBalance } = useGetHubtelBalanceQuery();
+  const { data: reloadly, refetch: refetchReloadly, isFetching: reloadlyBalanceFetching } =
+    useGetReloadlyBalanceQuery();
+  const {
+    data: hubtelBalance,
+    refetch: refetchHubtelBalance,
+    isFetching: hubtelBalanceFetching,
+  } = useGetHubtelBalanceQuery();
   const [verify, { isLoading: verifying }] = usePostVerifyNumberMutation();
   const [phone, setPhone] = useState("");
   const [network, setNetwork] = useState("");
@@ -155,11 +161,20 @@ export default function BalancesPage(): React.ReactElement {
             <Button
               type="button"
               variant="ghost"
+              disabled={reloadlyBalanceFetching}
+              aria-busy={reloadlyBalanceFetching}
               onClick={() => {
                 void refetchReloadly();
               }}
             >
-              Refresh
+              {reloadlyBalanceFetching ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  Refreshing…
+                </>
+              ) : (
+                "Refresh"
+              )}
             </Button>
           </CardHeader>
           <CardContent className="py-4">
@@ -190,18 +205,24 @@ export default function BalancesPage(): React.ReactElement {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm font-medium">Disbursement (Prepaid)</div>
-                <div className="text-muted-foreground text-xs">
-                  Requires Hubtel IP whitelisting for the Balance Query API.
-                </div>
               </div>
               <Button
                 type="button"
                 variant="ghost"
+                disabled={hubtelBalanceFetching}
+                aria-busy={hubtelBalanceFetching}
                 onClick={() => {
                   void refetchHubtelBalance();
                 }}
               >
-                Refresh
+                {hubtelBalanceFetching ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                    Refreshing…
+                  </>
+                ) : (
+                  "Refresh"
+                )}
               </Button>
             </div>
 
@@ -227,18 +248,6 @@ export default function BalancesPage(): React.ReactElement {
                 (spent minus commission returned)
               </span>
             </div>
-
-            <p className="text-muted-foreground text-xs">
-              Console fallback:{" "}
-              <a
-                href="https://unity.hubtel.com"
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary hover:underline"
-              >
-                unity.hubtel.com → Accounts → Prepaid
-              </a>
-            </p>
           </CardContent>
         </Card>
       </section>
@@ -246,17 +255,8 @@ export default function BalancesPage(): React.ReactElement {
       <Card className="rounded-none">
         <CardHeader className="border-b py-3">
           <CardTitle className="admin-card-title">Number Verification</CardTitle>
-          <p className="text-muted-foreground text-xs">
-            Verify recipient name before charging customer — requires Hubtel IP whitelisting
-          </p>
         </CardHeader>
         <CardContent className="space-y-3 py-4">
-          <div className="border-l-4 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <span className="font-semibold">IP Whitelisting required.</span> Both the MSISDN
-            Name Query and MoMo Wallet Verify endpoints require your server IP to be whitelisted
-            with Hubtel. A 403 response means you are not yet whitelisted.
-          </div>
-
           <form
             className="grid gap-3 lg:grid-cols-4 lg:items-end"
             onSubmit={(e) => {
@@ -306,8 +306,15 @@ export default function BalancesPage(): React.ReactElement {
                 <option value="momo">MoMo wallet only</option>
               </select>
             </div>
-            <Button type="submit" disabled={verifying}>
-              {verifying ? "Verifying…" : "Verify Number"}
+            <Button type="submit" disabled={verifying} aria-busy={verifying}>
+              {verifying ? (
+                <>
+                  <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" />
+                  Verifying…
+                </>
+              ) : (
+                "Verify Number"
+              )}
             </Button>
           </form>
 

@@ -1,0 +1,319 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  useHubtelLabConfigQuery,
+  useHubtelQueryBundlesMutation,
+  useHubtelTestDataBundleMutation,
+  useServiceOrderVerifyMutation,
+} from "@/store/admin-api";
+import { isValidHubtelGhanaMobile, toHubtelInternationalFormat } from "@/lib/ghana-phone";
+
+export type HubtelBundleOption = {
+  bundleId: string;
+  displayName: string;
+  amountGhs: number;
+  listKey: string;
+};
+
+type HubtelDataBundlesCardProps = {
+  network: string;
+  onNetworkChange: (network: string) => void;
+  prefetchDest: string;
+  onPrefetchDestChange: (value: string) => void;
+  checkoutBusy: boolean;
+  anyCheckoutBusy: boolean;
+  onCheckout: (body: Record<string, unknown>) => Promise<void>;
+};
+
+function failMsg(e: unknown): string {
+  if (e && typeof e === "object" && "data" in e) {
+    const m = (e as { data?: { message?: string } }).data?.message;
+    if (m) return m;
+  }
+  return "Request failed.";
+}
+
+function safeGetString(value: unknown, path: string): string | null {
+  if (!value || typeof value !== "object") return null;
+  const keys = path.split(".");
+  let current: unknown = value;
+  for (const k of keys) {
+    if (!current || typeof current !== "object") return null;
+    current = (current as Record<string, unknown>)[k];
+  }
+  return typeof current === "string" && current.trim() ? current : null;
+}
+
+export function HubtelDataBundlesCard({
+  network,
+  onNetworkChange,
+  prefetchDest,
+  onPrefetchDestChange,
+  checkoutBusy,
+  anyCheckoutBusy,
+  onCheckout,
+}: HubtelDataBundlesCardProps): React.ReactElement {
+  const { data: labConfig } = useHubtelLabConfigQuery();
+  const [qBundle, { isLoading: bundleQuerying }] = useHubtelQueryBundlesMutation();
+  const [testDataBundleDirect, { isLoading: directSending }] = useHubtelTestDataBundleMutation();
+  const [verify] = useServiceOrderVerifyMutation();
+
+  const [bundles, setBundles] = useState<HubtelBundleOption[] | null>(null);
+  const [selectedBundle, setSelectedBundle] = useState<HubtelBundleOption | null>(null);
+  const [recipient, setRecipient] = useState("");
+
+  function normalizePhoneInput(value: string): string {
+    return toHubtelInternationalFormat(value);
+  }
+
+  async function loadBundles(dest: string, net: string): Promise<void> {
+    const destination = normalizePhoneInput(dest);
+    if (!isValidHubtelGhanaMobile(destination)) {
+      toast.error("Enter a valid Ghana mobile (e.g. 0548496120 or 2330548496120).");
+      return;
+    }
+    const res = await qBundle({
+      destination,
+      network: net,
+    }).unwrap();
+    setBundles(res.bundles);
+    setSelectedBundle(null);
+    if (res.bundles.length === 0) {
+      toast.message("No bundles returned — inspect server logs / Hubtel raw response.");
+    } else {
+      toast.success(`Loaded ${res.bundle_count} bundle(s).`);
+    }
+  }
+
+  useEffect(() => {
+    const prefetch = labConfig?.prefetch_phone?.trim();
+    if (prefetch && !prefetchDest) {
+      onPrefetchDestChange(prefetch);
+    }
+  }, [labConfig, prefetchDest, onPrefetchDestChange]);
+
+  useEffect(() => {
+    const phone = prefetchDest.trim();
+    if (phone.length < 9) return;
+    void loadBundles(phone, network).catch((e) => {
+      toast.error(failMsg(e));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [network]);
+
+  const actionsBusy = directSending || checkoutBusy;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Data bundles</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <p className="text-muted-foreground text-sm">
+          Catalogue loads via <code className="text-xs">SEER_PHONE_NUMBER</code> (prefetch). Select a
+          bundle, enter the recipient, then send or checkout. Phone numbers are normalized to{" "}
+          <span className="font-mono text-xs">233…</span> (e.g. <span className="font-mono">054…</span>{" "}
+          or <span className="font-mono">548…</span> → <span className="font-mono">2330…</span>).
+        </p>
+        {labConfig?.prefetch_phone ? (
+          <p className="text-muted-foreground text-xs">
+            Prefetch: <span className="font-mono">{labConfig.prefetch_phone}</span>
+          </p>
+        ) : (
+          <p className="text-xs text-amber-800 dark:text-amber-200">
+            Set SEER_PHONE_NUMBER in seer-platform/.env to auto-load bundles.
+          </p>
+        )}
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Prefetch number</Label>
+            <Input
+              value={prefetchDest}
+              onChange={(e) => {
+                onPrefetchDestChange(e.target.value);
+              }}
+              onBlur={(e) => {
+                const normalized = normalizePhoneInput(e.target.value);
+                if (normalized && normalized !== e.target.value.trim()) {
+                  onPrefetchDestChange(normalized);
+                }
+              }}
+              placeholder="0548496120 or 2330548496120"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Network</Label>
+            <select
+              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              value={network}
+              onChange={(e) => {
+                onNetworkChange(e.target.value);
+              }}
+            >
+              <option value="mtn">mtn</option>
+              <option value="telecel">telecel</option>
+              <option value="at">at</option>
+              <option value="broadband_telecel">broadband_telecel</option>
+            </select>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={bundleQuerying || !prefetchDest.trim()}
+          onClick={() => {
+            void loadBundles(prefetchDest, network).catch((e) => {
+              toast.error(failMsg(e));
+            });
+          }}
+        >
+          {bundleQuerying ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+              Loading…
+            </>
+          ) : (
+            "Reload bundles"
+          )}
+        </Button>
+        {bundles && bundles.length > 0 ? (
+          <div className="space-y-2">
+            <Label>Select a bundle</Label>
+            <div className="max-h-64 overflow-auto rounded-md border">
+              <ul className="divide-y">
+                {bundles.slice(0, 100).map((b) => {
+                  const selected = selectedBundle?.listKey === b.listKey;
+                  return (
+                    <li key={b.listKey}>
+                      <button
+                        type="button"
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
+                          selected ? "bg-primary/10 ring-primary ring-1" : "hover:bg-muted"
+                        }`}
+                        onClick={() => {
+                          setSelectedBundle(b);
+                        }}
+                      >
+                        <span className="truncate">{b.displayName}</span>
+                        <span className="text-muted-foreground shrink-0 font-mono text-xs">
+                          GHS {b.amountGhs.toFixed(2)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        ) : null}
+        {selectedBundle ? (
+          <div className="space-y-3 rounded-md border p-3">
+            <p className="text-sm font-medium">{selectedBundle.displayName}</p>
+            <p className="text-muted-foreground font-mono text-xs">
+              {selectedBundle.bundleId} · GHS {selectedBundle.amountGhs.toFixed(2)}
+            </p>
+            <div className="space-y-2">
+              <Label>Recipient number</Label>
+              <Input
+                value={recipient}
+                onChange={(e) => {
+                  setRecipient(e.target.value);
+                }}
+                onBlur={(e) => {
+                  const normalized = normalizePhoneInput(e.target.value);
+                  if (normalized && normalized !== e.target.value.trim()) {
+                    setRecipient(normalized);
+                  }
+                }}
+                placeholder="0548496120 or 2330548496120"
+              />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                disabled={actionsBusy || anyCheckoutBusy || !recipient.trim()}
+                onClick={async () => {
+                  const destination = normalizePhoneInput(recipient);
+                  if (!isValidHubtelGhanaMobile(destination)) {
+                    toast.error("Enter a valid Ghana mobile for the recipient.");
+                    return;
+                  }
+                  setRecipient(destination);
+                  try {
+                    await testDataBundleDirect({
+                      destination,
+                      amount: selectedBundle.amountGhs,
+                      bundle: selectedBundle.bundleId,
+                      network,
+                    }).unwrap();
+                    toast.success("Data bundle sent via Commission Services.");
+                  } catch (e) {
+                    toast.error(failMsg(e));
+                  }
+                }}
+              >
+                {directSending ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                    Sending…
+                  </>
+                ) : (
+                  "Send bundle direct (CS)"
+                )}
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                disabled={actionsBusy || anyCheckoutBusy || !recipient.trim()}
+                onClick={async () => {
+                  const destination = normalizePhoneInput(recipient);
+                  if (!isValidHubtelGhanaMobile(destination)) {
+                    toast.error("Enter a valid Ghana mobile for the recipient.");
+                    return;
+                  }
+                  setRecipient(destination);
+                  let recipientName: string | undefined;
+                  try {
+                    const v = await verify({ phone: destination, network }).unwrap();
+                    recipientName = safeGetString(v, "name") ?? undefined;
+                  } catch {
+                    toast.message("Verify skipped — continuing to checkout.");
+                  }
+                  await onCheckout({
+                    product: "data",
+                    network,
+                    service_type: `data_${network}`,
+                    recipient: destination,
+                    recipient_name: recipientName,
+                    delivery_amount: selectedBundle.amountGhs,
+                    charged_amount: selectedBundle.amountGhs,
+                    data_bundle_id: selectedBundle.bundleId,
+                    description: `Data bundle for ${destination}`,
+                  });
+                }}
+              >
+                {checkoutBusy ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                    Processing…
+                  </>
+                ) : (
+                  "Checkout & run data bundle"
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
