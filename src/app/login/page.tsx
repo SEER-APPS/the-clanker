@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loginFailureMessageForClient } from "@/lib/login-failure-message";
 
@@ -11,6 +11,7 @@ export default function LoginPage(): React.ReactElement {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -130,18 +131,35 @@ export default function LoginPage(): React.ReactElement {
             <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b6b6b]">
               Password
             </label>
-            <input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(ev) => {
-                setPassword(ev.target.value);
-              }}
-              placeholder="••••••••"
-              className="w-full border border-[#2e2e2e] bg-[#111111] px-3.5 py-[11px] text-[13px] text-white outline-none transition-colors placeholder:text-[#4a4a4a] focus:border-white"
-              required
-            />
+            <div className="relative">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(ev) => {
+                  setPassword(ev.target.value);
+                }}
+                placeholder="••••••••"
+                className="w-full border border-[#2e2e2e] bg-[#111111] py-[11px] pl-3.5 pr-11 text-[13px] text-white outline-none transition-colors placeholder:text-[#4a4a4a] focus:border-white"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPassword((v) => !v);
+                }}
+                className="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-[#6b6b6b] transition-colors hover:text-white focus-visible:text-white focus-visible:outline-none"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="mb-6 flex items-center gap-2">
