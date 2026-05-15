@@ -121,7 +121,7 @@ export default function LoginPage(): React.ReactElement {
               onChange={(ev) => {
                 setEmail(ev.target.value);
               }}
-              placeholder="admin@theseer.app"
+              placeholder="Enter email address"
               className="w-full border border-[#2e2e2e] bg-[#111111] px-3.5 py-[11px] text-[13px] text-white outline-none transition-colors placeholder:text-[#4a4a4a] focus:border-white"
               required
             />
