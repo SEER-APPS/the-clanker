@@ -8,10 +8,6 @@ const HOP_BY_REQUEST_HEADERS = new Set([
   "keep-alive",
 ]);
 
-/**
- * Proxies public Laravel `/api/services/*` routes through Next so the browser never
- * needs `NEXT_PUBLIC_*` or a literal API origin (fixes SSR vs client hydration).
- */
 export async function proxyLaravelPublicServices(
   req: NextRequest,
   pathSegments: string[],
