@@ -11,7 +11,6 @@ import {
   useHubtelLabConfigQuery,
   useHubtelQueryBundlesMutation,
   useHubtelTestDataBundleMutation,
-  useServiceOrderVerifyMutation,
 } from "@/store/admin-api";
 import { isValidHubtelGhanaMobile, toHubtelInternationalFormat } from "@/lib/ghana-phone";
 
@@ -29,7 +28,9 @@ type HubtelDataBundlesCardProps = {
   onPrefetchDestChange: (value: string) => void;
   checkoutBusy: boolean;
   anyCheckoutBusy: boolean;
-  onCheckout: (body: Record<string, unknown>) => Promise<void>;
+  onCheckout: (
+    body: Record<string, unknown>,
+  ) => Promise<{ recipientName: string | null } | void>;
 };
 
 function failMsg(e: unknown): string {
@@ -38,17 +39,6 @@ function failMsg(e: unknown): string {
     if (m) return m;
   }
   return "Request failed.";
-}
-
-function safeGetString(value: unknown, path: string): string | null {
-  if (!value || typeof value !== "object") return null;
-  const keys = path.split(".");
-  let current: unknown = value;
-  for (const k of keys) {
-    if (!current || typeof current !== "object") return null;
-    current = (current as Record<string, unknown>)[k];
-  }
-  return typeof current === "string" && current.trim() ? current : null;
 }
 
 export function HubtelDataBundlesCard({
@@ -63,11 +53,12 @@ export function HubtelDataBundlesCard({
   const { data: labConfig } = useHubtelLabConfigQuery();
   const [qBundle, { isLoading: bundleQuerying }] = useHubtelQueryBundlesMutation();
   const [testDataBundleDirect, { isLoading: directSending }] = useHubtelTestDataBundleMutation();
-  const [verify] = useServiceOrderVerifyMutation();
 
   const [bundles, setBundles] = useState<HubtelBundleOption[] | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<HubtelBundleOption | null>(null);
   const [recipient, setRecipient] = useState("");
+  const [payeePhone, setPayeePhone] = useState("");
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
 
   function normalizePhoneInput(value: string): string {
     return toHubtelInternationalFormat(value);
@@ -97,7 +88,10 @@ export function HubtelDataBundlesCard({
     if (prefetch && !prefetchDest) {
       onPrefetchDestChange(prefetch);
     }
-  }, [labConfig, prefetchDest, onPrefetchDestChange]);
+    if (prefetch && !payeePhone) {
+      setPayeePhone(prefetch);
+    }
+  }, [labConfig, prefetchDest, onPrefetchDestChange, payeePhone]);
 
   useEffect(() => {
     const phone = prefetchDest.trim();
@@ -112,23 +106,28 @@ export function HubtelDataBundlesCard({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
         <CardTitle className="text-base">Data bundles</CardTitle>
+        {verifiedName ? (
+          <div className="text-right">
+            <p className="text-muted-foreground text-xs">Verified name</p>
+            <p className="text-sm font-medium">{verifiedName}</p>
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-muted-foreground text-sm">
-          Catalogue loads via <code className="text-xs">SEER_PHONE_NUMBER</code> (prefetch). Select a
-          bundle, enter the recipient, then send or checkout. Phone numbers are normalized to{" "}
-          <span className="font-mono text-xs">233…</span> (e.g. <span className="font-mono">054…</span>{" "}
-          or <span className="font-mono">548…</span> → <span className="font-mono">2330…</span>).
+          Enter a prefetch number to load the bundle catalogue, then pick a bundle and recipient for
+          direct send or checkout. Ghana numbers are normalized to{" "}
+          <span className="font-mono text-xs">233…</span>.
         </p>
         {labConfig?.prefetch_phone ? (
           <p className="text-muted-foreground text-xs">
-            Prefetch: <span className="font-mono">{labConfig.prefetch_phone}</span>
+            Default number: <span className="font-mono">{labConfig.prefetch_phone}</span>
           </p>
         ) : (
           <p className="text-xs text-amber-800 dark:text-amber-200">
-            Set SEER_PHONE_NUMBER in seer-platform/.env to auto-load bundles.
+            No default phone number is configured. Enter a number below to load bundles.
           </p>
         )}
         <div className="grid gap-3 md:grid-cols-2">
@@ -220,11 +219,12 @@ export function HubtelDataBundlesCard({
               {selectedBundle.bundleId} · GHS {selectedBundle.amountGhs.toFixed(2)}
             </p>
             <div className="space-y-2">
-              <Label>Recipient number</Label>
+              <Label>Recipient number (data goes here)</Label>
               <Input
                 value={recipient}
                 onChange={(e) => {
                   setRecipient(e.target.value);
+                  setVerifiedName(null);
                 }}
                 onBlur={(e) => {
                   const normalized = normalizePhoneInput(e.target.value);
@@ -233,6 +233,16 @@ export function HubtelDataBundlesCard({
                   }
                 }}
                 placeholder="0548496120 or 2330548496120"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Your phone (Hubtel checkout SMS)</Label>
+              <Input
+                value={payeePhone}
+                onChange={(e) => {
+                  setPayeePhone(e.target.value);
+                }}
+                placeholder="Number that receives payment prompt"
               />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -281,24 +291,23 @@ export function HubtelDataBundlesCard({
                     return;
                   }
                   setRecipient(destination);
-                  let recipientName: string | undefined;
-                  try {
-                    const v = await verify({ phone: destination, network }).unwrap();
-                    recipientName = safeGetString(v, "name") ?? undefined;
-                  } catch {
-                    toast.message("Verify skipped — continuing to checkout.");
-                  }
-                  await onCheckout({
+                  const body: Record<string, unknown> = {
                     product: "data",
                     network,
                     service_type: `data_${network}`,
                     recipient: destination,
-                    recipient_name: recipientName,
                     delivery_amount: selectedBundle.amountGhs,
                     charged_amount: selectedBundle.amountGhs,
                     data_bundle_id: selectedBundle.bundleId,
                     description: `Data bundle for ${destination}`,
-                  });
+                  };
+                  if (payeePhone.trim()) {
+                    body.payee_phone = payeePhone.trim();
+                  }
+                  const result = await onCheckout(body);
+                  if (result?.recipientName) {
+                    setVerifiedName(result.recipientName);
+                  }
                 }}
               >
                 {checkoutBusy ? (

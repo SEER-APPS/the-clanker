@@ -51,6 +51,7 @@ export function HubtelEcgPrepaidCard({
   const [payEcgDirect, { isLoading: directPaying }] = useHubtelTestUtilityMutation();
 
   const [mobile, setMobile] = useState("");
+  const [payeePhone, setPayeePhone] = useState("");
   const [meters, setMeters] = useState<HubtelEcgMeterOption[] | null>(null);
   const [selectedMeter, setSelectedMeter] = useState<HubtelEcgMeterOption | null>(null);
   const [manualMeter, setManualMeter] = useState("");
@@ -61,7 +62,10 @@ export function HubtelEcgPrepaidCard({
     if (prefetch && !mobile) {
       setMobile(prefetch);
     }
-  }, [labConfig, mobile]);
+    if (prefetch && !payeePhone) {
+      setPayeePhone(prefetch);
+    }
+  }, [labConfig, mobile, payeePhone]);
 
   const resolvedMeter = (selectedMeter?.meterNumber ?? manualMeter).trim();
   const actionsBusy = querying || directPaying || checkoutBusy;
@@ -101,21 +105,20 @@ export function HubtelEcgPrepaidCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-muted-foreground text-sm">
-          Query meters linked to a mobile number (ECG Power App), pick a meter, enter top-up amount, then pay via
-          Commission Services or Online Checkout.
+          Use the ECG-linked mobile to find meters. Use your own phone for checkout SMS (Hubtel payment prompt) —
+          change it when someone else is paying.
         </p>
         {labConfig?.prefetch_phone ? (
           <p className="text-muted-foreground text-xs">
-            Default mobile from <code className="text-xs">SEER_PHONE_NUMBER</code>:{" "}
-            <span className="font-mono">{labConfig.prefetch_phone}</span>
+            Default mobile: <span className="font-mono">{labConfig.prefetch_phone}</span>
           </p>
         ) : (
           <p className="text-xs text-amber-800 dark:text-amber-200">
-            Set SEER_PHONE_NUMBER in seer-platform/.env to prefill the mobile used for meter lookup.
+            No default mobile is configured. Enter a number below for meter lookup.
           </p>
         )}
         <div className="space-y-2">
-          <Label htmlFor="ecg-mobile">Mobile linked to ECG account</Label>
+          <Label htmlFor="ecg-mobile">Mobile linked to ECG account (meter lookup)</Label>
           <Input
             id="ecg-mobile"
             value={mobile}
@@ -129,6 +132,23 @@ export function HubtelEcgPrepaidCard({
               }
             }}
             placeholder="0548496120 or 2330548496120"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ecg-payee-phone">Your phone (Hubtel checkout SMS)</Label>
+          <Input
+            id="ecg-payee-phone"
+            value={payeePhone}
+            onChange={(e) => {
+              setPayeePhone(e.target.value);
+            }}
+            onBlur={(e) => {
+              const normalized = normalizePhoneInput(e.target.value);
+              if (normalized && normalized !== e.target.value.trim()) {
+                setPayeePhone(normalized);
+              }
+            }}
+            placeholder="Who pays — receives payment prompt"
           />
         </div>
         <Button
@@ -266,7 +286,7 @@ export function HubtelEcgPrepaidCard({
                   return;
                 }
                 setMobile(destination);
-                await onCheckout({
+                const checkoutBody: Record<string, unknown> = {
                   product: "ecg",
                   recipient: destination,
                   delivery_amount: amt,
@@ -276,7 +296,12 @@ export function HubtelEcgPrepaidCard({
                     customer_phone: destination,
                     meter_number: resolvedMeter,
                   },
-                });
+                };
+                const payerPhone = normalizePhoneInput(payeePhone);
+                if (isValidHubtelGhanaMobile(payerPhone)) {
+                  checkoutBody.payee_phone = payerPhone;
+                }
+                await onCheckout(checkoutBody);
               }}
             >
               {checkoutBusy ? (

@@ -8,6 +8,7 @@ import {
   useHubtelTestAirtimeMutation,
   useHubtelQueryUtilityMutation,
   useHubtelSyncPendingMutation,
+  useHubtelLabConfigQuery,
   useServiceOrderVerifyMutation,
   useServiceOrderCreateMutation,
   useServiceOrderStatusQuery,
@@ -40,6 +41,9 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [airDest, setAirDest] = useState("");
   const [airAmt, setAirAmt] = useState("");
   const [airNet, setAirNet] = useState("mtn");
+  const [airPayeePhone, setAirPayeePhone] = useState("");
+  const [airVerifiedName, setAirVerifiedName] = useState<string | null>(null);
+  const [airVerifyBusy, setAirVerifyBusy] = useState(false);
   const [bDest, setBDest] = useState("");
   const [bNet, setBNet] = useState("mtn");
   const [utilService, setUtilService] = useState<UtilityServiceKey>("ghana_water");
@@ -59,6 +63,7 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [testAirtimeDirect, { isLoading: airtimeDirectSending }] = useHubtelTestAirtimeMutation();
   const [qUtil, { isLoading: utilityQuerying }] = useHubtelQueryUtilityMutation();
   const [sync, { isLoading: hubtelSyncing }] = useHubtelSyncPendingMutation();
+  const { data: labConfig } = useHubtelLabConfigQuery();
   const [verify] = useServiceOrderVerifyMutation();
   const [createOrder] = useServiceOrderCreateMutation();
   const [airtimeCheckoutBusy, setAirtimeCheckoutBusy] = useState(false);
@@ -86,6 +91,13 @@ export default function HubtelTestsPage(): React.ReactElement {
   }, [orderUuid]);
 
   useEffect(() => {
+    const prefetch = labConfig?.prefetch_phone?.trim();
+    if (prefetch && !airPayeePhone) {
+      setAirPayeePhone(prefetch);
+    }
+  }, [labConfig, airPayeePhone]);
+
+  useEffect(() => {
     if (!checkoutOpen || !liveOrder || typeof liveOrder !== "object" || !("status" in liveOrder)) {
       return;
     }
@@ -96,25 +108,28 @@ export default function HubtelTestsPage(): React.ReactElement {
     deliveredToastPrev.current = st;
   }, [checkoutOpen, liveOrder]);
 
-  async function startCheckout(body: Record<string, unknown>): Promise<void> {
+  async function startCheckout(
+    body: Record<string, unknown>,
+  ): Promise<{ recipientName: string | null }> {
     const res = await createOrder({
       ...body,
       checkout_return_base_url:
         typeof window !== "undefined" ? window.location.origin : undefined,
     }).unwrap();
-    const { orderUuid: oid, checkoutUrl: url, checkoutId: cid } = extractOrderCheckoutFields(res);
+    const { orderUuid: oid, checkoutUrl: url, checkoutId: cid, recipientName } =
+      extractOrderCheckoutFields(res);
 
     if (!url || !oid) {
       toast.error("Checkout creation succeeded but response was missing checkout URL or order id.");
-      return;
+      return { recipientName: null };
     }
 
     setCheckoutUrl(url);
     setOrderUuid(oid);
     setCheckoutId(cid);
-    // Avoid iframe rendering issues (CSP / Trusted Types). Use a new tab for checkout.
     window.open(url, "_blank", "noopener,noreferrer");
     toast.success("Checkout opened in a new tab.");
+    return { recipientName };
   }
 
   return (
@@ -222,16 +237,23 @@ export default function HubtelTestsPage(): React.ReactElement {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
           <CardTitle className="text-base">Airtime test</CardTitle>
+          {airVerifiedName ? (
+            <div className="text-right">
+              <p className="text-muted-foreground text-xs">Verified name</p>
+              <p className="text-sm font-medium">{airVerifiedName}</p>
+            </div>
+          ) : null}
         </CardHeader>
-        <CardContent className="grid max-w-xl gap-3 md:grid-cols-3">
+        <CardContent className="grid max-w-2xl gap-3 md:grid-cols-3">
           <div className="space-y-2 md:col-span-2">
-            <Label>Destination</Label>
+            <Label>Destination (airtime recipient)</Label>
             <Input
               value={airDest}
               onChange={(e) => {
                 setAirDest(e.target.value);
+                setAirVerifiedName(null);
               }}
             />
           </div>
@@ -245,18 +267,63 @@ export default function HubtelTestsPage(): React.ReactElement {
             />
           </div>
           <div className="space-y-2 md:col-span-3">
+            <Label>Your phone (Hubtel checkout SMS)</Label>
+            <Input
+              value={airPayeePhone}
+              onChange={(e) => {
+                setAirPayeePhone(e.target.value);
+              }}
+              placeholder="Number that receives payment prompt"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-3">
             <Label>Network</Label>
             <select
               className="border-input bg-background h-9 rounded-md border px-3 text-sm"
               value={airNet}
               onChange={(e) => {
                 setAirNet(e.target.value);
+                setAirVerifiedName(null);
               }}
             >
               <option value="mtn">mtn</option>
               <option value="telecel">telecel</option>
               <option value="at">at</option>
             </select>
+          </div>
+          <div className="md:col-span-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={airVerifyBusy || !airDest.trim()}
+              onClick={async () => {
+                setAirVerifyBusy(true);
+                try {
+                  const v = await verify({ phone: airDest, network: airNet }).unwrap();
+                  const name = safeGetString(v, "name");
+                  setAirVerifiedName(name);
+                  if (name) {
+                    toast.success(`Recipient: ${name}`);
+                  } else {
+                    toast.message("Verified, but no registered name was returned.");
+                  }
+                } catch {
+                  toast.error("Could not verify this number.");
+                } finally {
+                  setAirVerifyBusy(false);
+                }
+              }}
+            >
+              {airVerifyBusy ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  Looking up…
+                </>
+              ) : (
+                "Look up recipient name"
+              )}
+            </Button>
           </div>
           <div className="flex flex-col gap-2 md:col-span-3 sm:flex-row">
             <Button
@@ -297,25 +364,21 @@ export default function HubtelTestsPage(): React.ReactElement {
               onClick={async () => {
                 setAirtimeCheckoutBusy(true);
                 try {
-                  let recipientName: string | undefined;
-                  try {
-                    const v = await verify({ phone: airDest, network: airNet }).unwrap();
-                    recipientName = safeGetString(v, "name") ?? undefined;
-                  } catch {
-                    toast.message(
-                      "Number verify unavailable (IP/TLS). Continuing to checkout anyway.",
-                    );
-                  }
                   const orderBody: Record<string, unknown> = {
                     product: "airtime",
                     network: airNet,
                     recipient: airDest,
-                    recipient_name: recipientName,
                     delivery_amount: Number(airAmt),
                     charged_amount: Number(airAmt),
                     description: `Airtime for ${airDest}`,
                   };
-                  await startCheckout(orderBody);
+                  if (airPayeePhone.trim()) {
+                    orderBody.payee_phone = airPayeePhone.trim();
+                  }
+                  const { recipientName } = await startCheckout(orderBody);
+                  if (recipientName) {
+                    setAirVerifiedName(recipientName);
+                  }
                 } catch (e) {
                   toast.error(failMsg(e));
                 } finally {
@@ -346,9 +409,10 @@ export default function HubtelTestsPage(): React.ReactElement {
         onCheckout={async (body) => {
           setDataBundleCheckoutBusy(true);
           try {
-            await startCheckout(body);
+            return await startCheckout(body);
           } catch (e) {
             toast.error(failMsg(e));
+            return { recipientName: null };
           } finally {
             setDataBundleCheckoutBusy(false);
           }
@@ -731,10 +795,11 @@ function extractOrderCheckoutFields(res: unknown): {
   orderUuid: string | null;
   checkoutUrl: string | null;
   checkoutId: string | null;
+  recipientName: string | null;
 } {
   const flat = flattenApiData(res);
   if (!flat) {
-    return { orderUuid: null, checkoutUrl: null, checkoutId: null };
+    return { orderUuid: null, checkoutUrl: null, checkoutId: null, recipientName: null };
   }
 
   const orderUuid = typeof flat.order_uuid === "string" ? flat.order_uuid : null;
@@ -748,7 +813,12 @@ function extractOrderCheckoutFields(res: unknown): {
     checkoutId = parseHubtelCheckoutIdFromUrl(checkoutUrl);
   }
 
-  return { orderUuid, checkoutUrl, checkoutId };
+  const recipientName =
+    typeof flat.recipient_name === "string" && flat.recipient_name.trim()
+      ? flat.recipient_name.trim()
+      : null;
+
+  return { orderUuid, checkoutUrl, checkoutId, recipientName };
 }
 
 function parseHubtelCheckoutIdFromUrl(url: string): string | null {
@@ -788,7 +858,9 @@ async function submitUtilityOrTvCheckout(args: {
   utilMeter: string;
   utilEmail: string;
   utilSessionId: string;
-  startCheckout: (body: Record<string, unknown>) => Promise<void>;
+  startCheckout: (
+    body: Record<string, unknown>,
+  ) => Promise<{ recipientName: string | null }>;
 }): Promise<void> {
   const {
     utilService,

@@ -29,6 +29,7 @@ import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 
 export default function HubtelTransactionsPage(): React.ReactElement {
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
   const [product, setProduct] = useState("");
   const [status, setStatus] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -44,12 +45,13 @@ export default function HubtelTransactionsPage(): React.ReactElement {
   const queryArgs = useMemo(
     () => ({
       page,
+      per_page: perPage,
       product: applied.product || undefined,
       status: applied.status || undefined,
       include_archived: applied.include_archived,
       include_deleted: applied.include_deleted,
     }),
-    [page, applied],
+    [page, perPage, applied],
   );
 
   const { data, isLoading, isError, refetch } = useGetHubtelTransactionsQuery(queryArgs);
@@ -326,7 +328,12 @@ export default function HubtelTransactionsPage(): React.ReactElement {
               className="mt-4"
               meta={txWrap?.meta}
               page={page}
+              perPage={perPage}
               onPageChange={setPage}
+              onPerPageChange={(next) => {
+                setPerPage(next);
+                setPage(1);
+              }}
             />
           ) : null}
         </CardContent>

@@ -1,80 +1,49 @@
 "use client";
 
 import { useState } from "react";
-import { useGetReloadlyPrepaidQuery } from "@/store/admin-api";
-import type { Paginated } from "@/types/admin";
-import { PaginationControls } from "@/components/admin/pagination-controls";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
+import { HubtelServiceTransactionsCard } from "@/components/hubtel/hubtel-service-transactions-card";
+import { Label } from "@/components/ui/label";
+import { HUBTEL_UTILITY_FILTER_OPTIONS } from "@/lib/hubtel-admin-products";
 
 export default function PrepaidPage(): React.ReactElement {
-  const [page, setPage] = useState(1);
-  const { data, isLoading, isError } = useGetReloadlyPrepaidQuery({ page });
-  const txBlock = data?.transactions as Paginated<Record<string, unknown>> | undefined;
+  const [utilityProduct, setUtilityProduct] = useState("");
+
+  const utilityFilter = (
+    <div className="space-y-2">
+      <Label htmlFor="utility-product">Utility / TV</Label>
+      <select
+        id="utility-product"
+        className="border-input bg-background h-9 min-w-[220px] rounded-md border px-3 text-sm"
+        value={utilityProduct}
+        onChange={(e) => {
+          setUtilityProduct(e.target.value);
+        }}
+      >
+        {HUBTEL_UTILITY_FILTER_OPTIONS.map((opt) => (
+          <option key={opt.value || "all"} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   return (
     <article className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Prepaid (data)</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Reloadly data top-up transactions.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Prepaid &amp; utilities</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Hubtel Commission Services — electricity, water, TV, and related bill payments.
+        </p>
       </header>
 
-      {isError ? (
-        <p className="text-destructive text-sm">Could not load prepaid data.</p>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Recipient</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <AdminTableBodySkeleton rows={8} cellWidths={["w-14", "w-20", "w-14", "w-28"]} />
-              ) : (
-                (txBlock?.items ?? []).map((row) => {
-                  const r = row as Record<string, unknown>;
-                  return (
-                    <TableRow key={String(r.id)}>
-                      <TableCell className="font-mono text-xs">{String(r.id)}</TableCell>
-                      <TableCell>{String(r.status ?? "—")}</TableCell>
-                      <TableCell>{String(r.amount ?? "—")}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {String(r.recipient_phone ?? "—")}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-          {!isLoading ? (
-            <PaginationControls
-              className="mt-4"
-              meta={txBlock?.meta}
-              page={page}
-              onPageChange={setPage}
-            />
-          ) : null}
-        </CardContent>
-      </Card>
+      <HubtelServiceTransactionsCard
+        key={utilityProduct || "all-utilities"}
+        title="Utility transactions"
+        productGroup={utilityProduct ? undefined : "utilities"}
+        product={utilityProduct || undefined}
+        utilityProductFilter={utilityFilter}
+      />
     </article>
   );
 }

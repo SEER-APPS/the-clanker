@@ -6,8 +6,7 @@ import {
   useGetReloadlyOperatorsQuery,
   useSaveOperatorMappingsMutation,
 } from "@/store/admin-api";
-import type { Paginated } from "@/types/admin";
-import { PaginationControls } from "@/components/admin/pagination-controls";
+import { HubtelServiceTransactionsCard } from "@/components/hubtel/hubtel-service-transactions-card";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,9 +21,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import {
   Dialog,
   DialogContent,
@@ -36,16 +32,14 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 export default function AirtimePage(): React.ReactElement {
-  const [page, setPage] = useState(1);
-  const { data, isLoading, isError, refetch } = useGetReloadlyAirtimeQuery({ page });
-  const countryIso = String(data?.country_iso ?? "GH");
+  const { data: reloadlyMeta } = useGetReloadlyAirtimeQuery({ page: 1 });
+  const countryIso = String(reloadlyMeta?.country_iso ?? "GH");
   const { data: opData, refetch: refetchOps } = useGetReloadlyOperatorsQuery({ countryIso });
   const [saveMappings, { isLoading: saving }] = useSaveOperatorMappingsMutation();
   const [operatorsOpen, setOperatorsOpen] = useState(false);
 
-  const txBlock = data?.transactions as Paginated<Record<string, unknown>> | undefined;
-  const canEdit = Boolean(data?.can_edit_mappings);
-  const storedMappings = (data?.stored_mappings ?? []) as Array<Record<string, unknown>>;
+  const canEdit = Boolean(reloadlyMeta?.can_edit_mappings);
+  const storedMappings = (reloadlyMeta?.stored_mappings ?? []) as Array<Record<string, unknown>>;
 
   const [catalog, setCatalog] = useState({
     airteltigo: "",
@@ -85,7 +79,6 @@ export default function AirtimePage(): React.ReactElement {
         catalog: payload,
       }).unwrap();
       toast.success("Mappings saved.");
-      void refetch();
       void refetchOps();
       setOperatorsOpen(false);
     } catch (err: unknown) {
@@ -102,7 +95,7 @@ export default function AirtimePage(): React.ReactElement {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <AdminPageHeader
           title="Airtime"
-          subtitle={`Top-up transactions · saved mappings override environment fallbacks · ${countryIso}`}
+          subtitle={`Hubtel airtime transactions · operator mappings · ${countryIso}`}
         />
         <Dialog
           open={operatorsOpen}
@@ -199,10 +192,6 @@ export default function AirtimePage(): React.ReactElement {
         </Dialog>
       </div>
 
-      {isError ? (
-        <p className="text-destructive text-sm">Could not load airtime data.</p>
-      ) : null}
-
       {storedMappings.length ? (
         <Card className="rounded-none">
           <CardHeader className="border-b py-3">
@@ -235,97 +224,11 @@ export default function AirtimePage(): React.ReactElement {
         </Card>
       ) : null}
 
-      <Card className="rounded-none">
-        <CardHeader className="border-b py-3">
-          <CardTitle className="admin-card-title">Transactions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="admin-table-heavy-divider">
-              <TableRow>
-                <TableHead className="admin-table-head">#</TableHead>
-                <TableHead className="admin-table-head">User</TableHead>
-                <TableHead className="admin-table-head">Recipient</TableHead>
-                <TableHead className="admin-table-head">Operator</TableHead>
-                <TableHead className="admin-table-head">Amount</TableHead>
-                <TableHead className="admin-table-head">Status</TableHead>
-                <TableHead className="admin-table-head">When</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <AdminTableBodySkeleton
-                  rows={8}
-                  cellWidths={["w-12", "w-28", "w-24", "w-16", "w-20", "w-16", "w-24"]}
-                />
-              ) : (
-                <>
-                  {(txBlock?.items ?? []).map((row) => {
-                    const r = row as Record<string, unknown>;
-                    const user = (r.user ?? null) as
-                      | { uuid?: string; name?: string | null; phone_number?: string | null }
-                      | null;
-                    const userLabel = String(user?.name ?? user?.phone_number ?? "—");
-                    const userUuid = String(user?.uuid ?? "");
-                    const recipient = String(r.recipient ?? r.recipient_phone ?? "—");
-                    const operatorId = String(r.operator_id ?? "—");
-                    const currency = String(r.currency ?? "");
-                    const amount = Number(r.amount ?? 0);
-                    const status = String(r.status ?? "");
-                    const when = formatAirtimeWhen(String(r.created_at ?? ""));
-                    return (
-                      <TableRow key={String(r.id)}>
-                        <TableCell className="font-mono text-xs">{String(r.id)}</TableCell>
-                        <TableCell>
-                          {userUuid ? (
-                            <Link
-                              href={`/users/${encodeURIComponent(userUuid)}`}
-                              className="text-foreground text-sm font-medium hover:underline"
-                            >
-                              {userLabel}
-                            </Link>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{recipient}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {operatorId}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {Number.isFinite(amount) ? formatDecimalAmount(amount) : "—"}{" "}
-                          <span className="text-muted-foreground">{currency}</span>
-                        </TableCell>
-                        <TableCell>
-                          {status ? <Badge variant="gray">{status}</Badge> : "—"}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                          {when}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {!txBlock?.items?.length ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-muted-foreground py-8">
-                        No airtime transactions yet.
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </>
-              )}
-            </TableBody>
-          </Table>
-          {!isLoading ? (
-            <PaginationControls
-              className="p-4"
-              meta={txBlock?.meta}
-              page={page}
-              onPageChange={setPage}
-            />
-          ) : null}
-        </CardContent>
-      </Card>
+      <HubtelServiceTransactionsCard
+        title="Airtime transactions"
+        productGroup="airtime"
+        showStatusFilter
+      />
     </article>
   );
 }
@@ -375,25 +278,4 @@ function formatOperatorsList(raw: unknown): string {
       return `${String(id)}\t${String(name)}`;
     })
     .join("\n");
-}
-
-function formatDecimalAmount(value: number): string {
-  if (!Number.isFinite(value)) return "0.00";
-  const fixed4 = value.toFixed(4);
-  const [intPart, decPartRaw] = fixed4.split(".");
-  const decTrimmed = decPartRaw.replace(/0+$/, "");
-  const dec = decTrimmed.length < 2 ? decPartRaw.slice(0, 2) : decTrimmed;
-  return `${intPart}.${dec}`;
-}
-
-function formatAirtimeWhen(iso: string): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
 }
