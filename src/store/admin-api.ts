@@ -2,6 +2,18 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import type { AdminMe, DashboardPayload, Paginated } from "@/types/admin";
 import { adminJsonBaseQuery } from "@/store/admin-base-query";
 
+type FeatureToggleAuditActor = {
+  adminId: string;
+  adminName: string;
+  adminEmail: string;
+};
+
+type FeatureToggleState = {
+  enabled: boolean;
+  updatedAt: string | null;
+  updatedBy: FeatureToggleAuditActor | null;
+};
+
 export const adminApi = createApi({
   reducerPath: "adminApi",
   baseQuery: adminJsonBaseQuery,
@@ -20,6 +32,7 @@ export const adminApi = createApi({
     "Settings",
     "Staff",
     "Balances",
+    "Features",
   ],
   endpoints: (builder) => ({
     getMe: builder.query<{ admin: AdminMe }, void>({
@@ -468,6 +481,22 @@ export const adminApi = createApi({
       query: () => ({ url: "/settings/photo", method: "DELETE" }),
       invalidatesTags: ["Settings", "Me"],
     }),
+    getFeatures: builder.query<
+      {
+        flags: Record<string, FeatureToggleState>;
+      },
+      void
+    >({
+      query: () => "/features",
+      providesTags: ["Features"],
+    }),
+    updateFeature: builder.mutation<
+      { flags: Record<string, FeatureToggleState> },
+      { key: string; enabled: boolean }
+    >({
+      query: (body) => ({ url: "/features", method: "PUT", body }),
+      invalidatesTags: ["Features"],
+    }),
     getStaffAdmins: builder.query<{ admins: Record<string, unknown>[] }, void | undefined>({
       query: () => "/staff/admins",
       providesTags: ["Staff"],
@@ -567,6 +596,8 @@ export const {
   useUpdatePasswordMutation,
   useUpdatePhotoMutation,
   useRemovePhotoMutation,
+  useGetFeaturesQuery,
+  useUpdateFeatureMutation,
   useGetStaffAdminsQuery,
   useCreateStaffAdminMutation,
   useChangeStaffRoleMutation,

@@ -25,6 +25,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: "System",
     items: [
       { label: "Settings", href: "/settings" },
+      { label: "Features", href: "/features" },
       { label: "Tests", href: "/services/tests" },
       { label: "Analytics", href: "/services/analytics" },
     ],
