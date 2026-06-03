@@ -11,7 +11,7 @@ type FeatureToggleConfig = {
   key: string;
   label: string;
   description: string;
-  category: "Authentication" | "Services";
+  category: "Authentication" | "Payments" | "Services";
 };
 
 const FEATURE_TOGGLES: FeatureToggleConfig[] = [
@@ -20,6 +20,13 @@ const FEATURE_TOGGLES: FeatureToggleConfig[] = [
     label: "Guest Mode",
     description: "Allow guest users to sign in and use chat flows.",
     category: "Authentication",
+  },
+  {
+    key: "hubtel_direct_receive_enabled",
+    label: "Hubtel Direct Receive",
+    description:
+      "Use in-app MoMo payment (Direct Receive) instead of redirect checkout. When off, apps use Hubtel hosted checkout.",
+    category: "Payments",
   },
   {
     key: "service_prepaid_enabled",
@@ -74,6 +81,7 @@ export default function FeaturesPage(): React.ReactElement {
   const grouped = useMemo(() => {
     return {
       Authentication: FEATURE_TOGGLES.filter((item) => item.category === "Authentication"),
+      Payments: FEATURE_TOGGLES.filter((item) => item.category === "Payments"),
       Services: FEATURE_TOGGLES.filter((item) => item.category === "Services"),
     };
   }, []);
@@ -111,7 +119,7 @@ export default function FeaturesPage(): React.ReactElement {
         </p>
       ) : null}
 
-      {(["Authentication", "Services"] as const).map((category) => (
+      {(["Authentication", "Payments", "Services"] as const).map((category) => (
         <Card key={category} className="rounded-none">
           <CardHeader className="border-b py-3">
             <CardTitle className="admin-card-title">{category}</CardTitle>
