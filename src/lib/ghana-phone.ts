@@ -1,29 +1,30 @@
 /**
- * Normalize Ghana mobile numbers for Hubtel (accepts 12- or 13-digit 233… forms).
- *
- * Examples:
- * - 2330548496120 → unchanged
- * - 0548496120 → 2330548496120
- * - 548496120 → 2330548496120
+ * Normalize Ghana mobile for Hubtel (matches core `toInternationalFormat`).
+ * Hubtel Commission Services expect 233 + 9 national digits, e.g. 233548496120.
  */
 export function toHubtelInternationalFormat(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (!digits) {
     return "";
   }
-  if (digits.startsWith("233") && (digits.length === 12 || digits.length === 13)) {
+  if (digits.startsWith("233") && digits.length === 12) {
     return digits;
   }
-  if (digits.startsWith("0") && digits.length === 10) {
-    return `2330${digits.slice(1)}`;
+  if (digits.startsWith("2330") && digits.length === 13) {
+    return `233${digits.slice(4)}`;
   }
-  if (digits.length === 9) {
-    return `2330${digits}`;
+  let national = digits.startsWith("233") ? digits.slice(3) : digits;
+  national = national.replace(/^0+/, "");
+  if (national.length > 9) {
+    national = national.slice(-9);
+  }
+  if (national.length === 9) {
+    return `233${national}`;
   }
   return digits;
 }
 
 export function isValidHubtelGhanaMobile(phone: string): boolean {
   const normalized = toHubtelInternationalFormat(phone);
-  return /^2330?\d{9}$/.test(normalized);
+  return /^233\d{9}$/.test(normalized);
 }

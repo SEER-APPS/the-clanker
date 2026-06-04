@@ -6,11 +6,12 @@ import {
   useHubtelTestSmsMutation,
   useHubtelTestSmsBatchMutation,
   useHubtelTestAirtimeMutation,
+  useHubtelStatusCheckMutation,
   useHubtelQueryUtilityMutation,
   useHubtelSyncPendingMutation,
   useHubtelLabConfigQuery,
-  useServiceOrderVerifyMutation,
   useServiceOrderCreateMutation,
+  useServiceOrderPayDirectMutation,
   useServiceOrderStatusQuery,
   useLazyServiceOrderStatusQuery,
   useLazyServicePaymentStatusByCheckoutQuery,
@@ -25,6 +26,14 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { HubtelDataBundlesCard } from "@/app/(app)/services/hubtel/tests/hubtel-data-bundles-card";
 import { HubtelEcgPrepaidCard } from "@/app/(app)/services/hubtel/tests/hubtel-ecg-prepaid-card";
+import {
+  HubtelTestFollowup,
+  type HubtelTestTransactionSnapshot,
+} from "@/components/hubtel/hubtel-test-followup";
+import {
+  isValidHubtelGhanaMobile,
+  toHubtelInternationalFormat,
+} from "@/lib/ghana-phone";
 
 type UtilityServiceKey =
   | "ecg"
@@ -43,7 +52,10 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [airNet, setAirNet] = useState("mtn");
   const [airPayeePhone, setAirPayeePhone] = useState("");
   const [airVerifiedName, setAirVerifiedName] = useState<string | null>(null);
-  const [airVerifyBusy, setAirVerifyBusy] = useState(false);
+  const [lastCsTransaction, setLastCsTransaction] = useState<HubtelTestTransactionSnapshot | null>(
+    null,
+  );
+  const [hubtelStatusLabel, setHubtelStatusLabel] = useState<string | null>(null);
   const [bDest, setBDest] = useState("");
   const [bNet, setBNet] = useState("mtn");
   const [utilService, setUtilService] = useState<UtilityServiceKey>("ghana_water");
@@ -61,17 +73,22 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [sms, { isLoading: smsSending }] = useHubtelTestSmsMutation();
   const [smsBatch, { isLoading: smsBatchSending }] = useHubtelTestSmsBatchMutation();
   const [testAirtimeDirect, { isLoading: airtimeDirectSending }] = useHubtelTestAirtimeMutation();
+  const [hubtelStatusCheck, { isLoading: hubtelStatusChecking }] = useHubtelStatusCheckMutation();
   const [qUtil, { isLoading: utilityQuerying }] = useHubtelQueryUtilityMutation();
   const [sync, { isLoading: hubtelSyncing }] = useHubtelSyncPendingMutation();
   const { data: labConfig } = useHubtelLabConfigQuery();
-  const [verify] = useServiceOrderVerifyMutation();
   const [createOrder] = useServiceOrderCreateMutation();
+  const [payDirect, { isLoading: airtimeDirectPayBusy }] = useServiceOrderPayDirectMutation();
   const [airtimeCheckoutBusy, setAirtimeCheckoutBusy] = useState(false);
   const [dataBundleCheckoutBusy, setDataBundleCheckoutBusy] = useState(false);
   const [utilityCheckoutBusy, setUtilityCheckoutBusy] = useState(false);
   const [ecgCheckoutBusy, setEcgCheckoutBusy] = useState(false);
   const anyCheckoutBusy =
-    airtimeCheckoutBusy || dataBundleCheckoutBusy || utilityCheckoutBusy || ecgCheckoutBusy;
+    airtimeCheckoutBusy ||
+    airtimeDirectPayBusy ||
+    dataBundleCheckoutBusy ||
+    utilityCheckoutBusy ||
+    ecgCheckoutBusy;
   const [getStatus, { isFetching: orderStatusFetching }] = useLazyServiceOrderStatusQuery();
   const [getPaymentStatus, { isFetching: paymentStatusFetching }] =
     useLazyServicePaymentStatusByCheckoutQuery();
@@ -127,6 +144,7 @@ export default function HubtelTestsPage(): React.ReactElement {
     setCheckoutUrl(url);
     setOrderUuid(oid);
     setCheckoutId(cid);
+    setCheckoutOpen(true);
     window.open(url, "_blank", "noopener,noreferrer");
     toast.success("Checkout opened in a new tab.");
     return { recipientName };
@@ -247,13 +265,24 @@ export default function HubtelTestsPage(): React.ReactElement {
           ) : null}
         </CardHeader>
         <CardContent className="grid max-w-2xl gap-3 md:grid-cols-3">
+          <p className="text-muted-foreground md:col-span-3 text-xs">
+            Numbers are normalized to Hubtel format (<span className="font-mono">233XXXXXXXXX</span>) before
+            send. Local <span className="font-mono">054…</span> is fine.
+          </p>
           <div className="space-y-2 md:col-span-2">
             <Label>Destination (airtime recipient)</Label>
             <Input
               value={airDest}
+              placeholder="0548496120 or 233548496120"
               onChange={(e) => {
                 setAirDest(e.target.value);
                 setAirVerifiedName(null);
+              }}
+              onBlur={(e) => {
+                const normalized = toHubtelInternationalFormat(e.target.value);
+                if (normalized && normalized !== e.target.value.trim()) {
+                  setAirDest(normalized);
+                }
               }}
             />
           </div>
@@ -273,7 +302,13 @@ export default function HubtelTestsPage(): React.ReactElement {
               onChange={(e) => {
                 setAirPayeePhone(e.target.value);
               }}
-              placeholder="Number that receives payment prompt"
+              onBlur={(e) => {
+                const normalized = toHubtelInternationalFormat(e.target.value);
+                if (normalized && normalized !== e.target.value.trim()) {
+                  setAirPayeePhone(normalized);
+                }
+              }}
+              placeholder="MoMo number for payment prompt (checkout / direct pay)"
             />
           </div>
           <div className="space-y-2 md:col-span-3">
@@ -291,56 +326,34 @@ export default function HubtelTestsPage(): React.ReactElement {
               <option value="at">at</option>
             </select>
           </div>
-          <div className="md:col-span-3">
+          <div className="flex flex-col gap-2 md:col-span-3">
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              disabled={airVerifyBusy || !airDest.trim()}
-              onClick={async () => {
-                setAirVerifyBusy(true);
-                try {
-                  const v = await verify({ phone: airDest, network: airNet }).unwrap();
-                  const name = safeGetString(v, "name");
-                  setAirVerifiedName(name);
-                  if (name) {
-                    toast.success(`Recipient: ${name}`);
-                  } else {
-                    toast.message("Verified, but no registered name was returned.");
-                  }
-                } catch {
-                  toast.error("Could not verify this number.");
-                } finally {
-                  setAirVerifyBusy(false);
-                }
-              }}
-            >
-              {airVerifyBusy ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
-                  Looking up…
-                </>
-              ) : (
-                "Look up recipient name"
-              )}
-            </Button>
-          </div>
-          <div className="flex flex-col gap-2 md:col-span-3 sm:flex-row">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              disabled={airtimeDirectSending || airtimeCheckoutBusy || !airDest || !airAmt}
+              disabled={
+                airtimeDirectSending ||
+                anyCheckoutBusy ||
+                !isValidHubtelGhanaMobile(airDest) ||
+                !airAmt
+              }
               aria-busy={airtimeDirectSending}
               onClick={async () => {
+                setHubtelStatusLabel(null);
                 try {
-                  const res = await testAirtimeDirect({
-                    destination: airDest,
+                  const destination = toHubtelInternationalFormat(airDest);
+                  const res = (await testAirtimeDirect({
+                    destination,
                     amount: Number(airAmt),
                     network: airNet,
-                  }).unwrap();
+                  }).unwrap()) as {
+                    data?: { transaction?: HubtelTestTransactionSnapshot };
+                  };
+                  const tx = res.data?.transaction;
+                  if (tx) {
+                    setLastCsTransaction(tx);
+                  }
                   toast.success(
-                    `Commission Services accepted airtime (ref ${safeGetString(res, "data.client_reference") ?? "ok"}).`,
+                    `Commission Services accepted (ref ${tx?.client_reference ?? "ok"}).`,
                   );
                 } catch (e) {
                   toast.error(failMsg(e));
@@ -353,13 +366,19 @@ export default function HubtelTestsPage(): React.ReactElement {
                   Sending…
                 </>
               ) : (
-                "Send airtime direct (CS)"
+                "1. Direct send (Commission Services)"
               )}
             </Button>
             <Button
               type="button"
-              className="flex-1"
-              disabled={airtimeDirectSending || airtimeCheckoutBusy || !airDest || !airAmt}
+              variant="secondary"
+              disabled={
+                airtimeDirectSending ||
+                anyCheckoutBusy ||
+                !isValidHubtelGhanaMobile(airDest) ||
+                !airAmt ||
+                !isValidHubtelGhanaMobile(airPayeePhone)
+              }
               aria-busy={airtimeCheckoutBusy}
               onClick={async () => {
                 setAirtimeCheckoutBusy(true);
@@ -367,14 +386,12 @@ export default function HubtelTestsPage(): React.ReactElement {
                   const orderBody: Record<string, unknown> = {
                     product: "airtime",
                     network: airNet,
-                    recipient: airDest,
+                    recipient: toHubtelInternationalFormat(airDest),
                     delivery_amount: Number(airAmt),
                     charged_amount: Number(airAmt),
-                    description: `Airtime for ${airDest}`,
+                    description: `Airtime for ${toHubtelInternationalFormat(airDest)}`,
+                    payee_phone: toHubtelInternationalFormat(airPayeePhone),
                   };
-                  if (airPayeePhone.trim()) {
-                    orderBody.payee_phone = airPayeePhone.trim();
-                  }
                   const { recipientName } = await startCheckout(orderBody);
                   if (recipientName) {
                     setAirVerifiedName(recipientName);
@@ -392,9 +409,86 @@ export default function HubtelTestsPage(): React.ReactElement {
                   Processing…
                 </>
               ) : (
-                "Checkout & run airtime"
+                "2. Online checkout (browser) + deliver"
               )}
             </Button>
+            <Button
+              type="button"
+              disabled={
+                airtimeDirectSending ||
+                anyCheckoutBusy ||
+                !isValidHubtelGhanaMobile(airDest) ||
+                !airAmt ||
+                !isValidHubtelGhanaMobile(airPayeePhone)
+              }
+              aria-busy={airtimeDirectPayBusy}
+              onClick={async () => {
+                try {
+                  const res = (await payDirect({
+                    product: "airtime",
+                    network: airNet,
+                    recipient: toHubtelInternationalFormat(airDest),
+                    delivery_amount: Number(airAmt),
+                    charged_amount: Number(airAmt),
+                    payer_phone: toHubtelInternationalFormat(airPayeePhone),
+                    description: `Airtime for ${toHubtelInternationalFormat(airDest)}`,
+                  }).unwrap()) as {
+                    data?: { order_uuid?: string; client_reference?: string };
+                    message?: string;
+                  };
+                  const oid = res.data?.order_uuid;
+                  if (oid) {
+                    setOrderUuid(oid);
+                    setCheckoutOpen(true);
+                  }
+                  toast.success(res.message ?? "MoMo prompt sent. Approve on the payer phone.");
+                } catch (e) {
+                  toast.error(failMsg(e));
+                }
+              }}
+            >
+              {airtimeDirectPayBusy ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  Sending MoMo prompt…
+                </>
+              ) : (
+                "3. Direct MoMo pay (push prompt) + deliver"
+              )}
+            </Button>
+          </div>
+          <div className="md:col-span-3">
+            <HubtelTestFollowup
+              transaction={lastCsTransaction}
+              statusChecking={hubtelStatusChecking}
+              hubtelStatusLabel={hubtelStatusLabel}
+              onCheckStatus={async () => {
+                const ref = lastCsTransaction?.client_reference;
+                if (!ref) {
+                  return;
+                }
+                try {
+                  const res = (await hubtelStatusCheck({ client_reference: ref }).unwrap()) as {
+                    data?: {
+                      hubtel?: { data?: { status?: string } };
+                      transaction?: HubtelTestTransactionSnapshot;
+                    };
+                  };
+                  const hubtelStatus = res.data?.hubtel?.data?.status;
+                  setHubtelStatusLabel(hubtelStatus ?? null);
+                  if (res.data?.transaction) {
+                    setLastCsTransaction(res.data.transaction);
+                  }
+                  toast.success(
+                    hubtelStatus
+                      ? `Hubtel payment status: ${hubtelStatus}`
+                      : "Status check completed.",
+                  );
+                } catch (e) {
+                  toast.error(failMsg(e));
+                }
+              }}
+            />
           </div>
         </CardContent>
       </Card>
@@ -631,9 +725,44 @@ export default function HubtelTestsPage(): React.ReactElement {
       >
         <DialogContent className="w-[min(96vw,1320px)] max-w-none gap-4">
           <DialogHeader>
-            <DialogTitle>Checkout</DialogTitle>
+            <DialogTitle>Payment &amp; order status</DialogTitle>
           </DialogHeader>
-          {checkoutUrl ? (
+          {orderUuid && !checkoutUrl ? (
+            <div className="space-y-3">
+              {liveOrder && typeof liveOrder === "object" && liveOrder !== null && "status" in liveOrder ? (
+                <section
+                  className="border-border rounded-md border px-3 py-2 text-sm"
+                  aria-live="polite"
+                  aria-busy={orderLiveFetching}
+                >
+                  <span className="text-muted-foreground">Order status (syncs every 5s): </span>
+                  <span className="font-medium">{String((liveOrder as { status?: unknown }).status)}</span>
+                </section>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!orderUuid || orderStatusFetching}
+                  aria-busy={orderStatusFetching}
+                  onClick={async () => {
+                    if (!orderUuid) return;
+                    try {
+                      const res = await getStatus({ uuid: orderUuid }).unwrap();
+                      toast.success(formatOrderStatusToast(res));
+                    } catch (e) {
+                      toast.error(failMsg(e));
+                    }
+                  }}
+                >
+                  Refresh order status
+                </Button>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Direct MoMo: approve the prompt on the payer phone. Service delivers after Hubtel confirms payment.
+              </p>
+            </div>
+          ) : checkoutUrl ? (
             <div className="space-y-3">
               {liveOrder && typeof liveOrder === "object" && liveOrder !== null && "status" in liveOrder ? (
                 <section

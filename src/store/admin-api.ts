@@ -450,6 +450,9 @@ export const adminApi = createApi({
     serviceOrderCreate: builder.mutation<unknown, Record<string, unknown>>({
       query: (body) => ({ url: "/services/order", method: "POST", body }),
     }),
+    serviceOrderPayDirect: builder.mutation<unknown, Record<string, unknown>>({
+      query: (body) => ({ url: "/services/order/pay-direct", method: "POST", body }),
+    }),
     serviceOrderStatus: builder.query<unknown, { uuid: string }>({
       query: ({ uuid }) => ({ url: `/services/order/${uuid}` }),
     }),
@@ -587,6 +590,7 @@ export const {
   useHubtelSyncPendingMutation,
   useServiceOrderVerifyMutation,
   useServiceOrderCreateMutation,
+  useServiceOrderPayDirectMutation,
   useServiceOrderStatusQuery,
   useLazyServiceOrderStatusQuery,
   useLazyServiceOrderLookupByCheckoutQuery,
