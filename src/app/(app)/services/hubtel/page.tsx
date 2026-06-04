@@ -107,7 +107,7 @@ export default function HubtelSummaryPage(): React.ReactElement {
               {!data.refundConfigured ? (
                 <span className="text-muted-foreground">
                   {" "}
-                  | <strong>Refund API:</strong> set <code>HUBTEL_POS_SALES_ID</code> to enable.
+                  | <strong>Refund API:</strong> set <code>HUBTEL_COLLECTION_ACCOUNT_NUMBER</code> to enable.
                 </span>
               ) : null}
             </div>
@@ -115,7 +115,7 @@ export default function HubtelSummaryPage(): React.ReactElement {
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900">
               <strong>Hubtel not fully configured.</strong> Set{" "}
               <code>HUBTEL_API_ID</code>, <code>HUBTEL_API_KEY</code>, and{" "}
-              <code>HUBTEL_PREPAID_DEPOSIT_ID</code> in{" "}
+              <code>HUBTEL_DISBURSEMENT_ACCOUNT_NUMBER</code> in{" "}
               <code>seer-platform/.env</code>, then restart <strong>core</strong> (and proxy if
               you use port 4004).
             </div>
