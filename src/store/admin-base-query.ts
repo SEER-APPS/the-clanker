@@ -19,6 +19,50 @@ function stripSuccess(envelope: JsonEnvelope): Record<string, unknown> {
   return rest;
 }
 
+function isHttpSuccess(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
+function normalizeEnvelopeData(envelope: JsonEnvelope): Record<string, unknown> {
+  if (envelope.data !== undefined && envelope.data !== null) {
+    if (typeof envelope.data === "object" && !Array.isArray(envelope.data)) {
+      return { ...(envelope.data as Record<string, unknown>) };
+    }
+    return { value: envelope.data };
+  }
+  return stripSuccess(envelope);
+}
+
+function envelopeLooksSuccessful(envelope: JsonEnvelope, status: number): boolean {
+  if (envelope.success === true) {
+    return true;
+  }
+  if (envelope.success === false) {
+    return false;
+  }
+  if (!isHttpSuccess(status)) {
+    return false;
+  }
+  if (envelope.data !== undefined) {
+    return true;
+  }
+  return (
+    envelope.order_uuid != null ||
+    envelope.transaction != null ||
+    envelope.order != null
+  );
+}
+
+function attachEnvelopeMessage(
+  payload: Record<string, unknown>,
+  envelope: JsonEnvelope,
+): Record<string, unknown> {
+  if (typeof envelope.message === "string" && envelope.message.trim()) {
+    payload.message ??= envelope.message;
+  }
+  return payload;
+}
+
 export const adminJsonBaseQuery: BaseQueryFn<
   string | FetchArgs,
   unknown,
@@ -112,11 +156,9 @@ export const adminJsonBaseQuery: BaseQueryFn<
     return { error: { status: 401, data: envelope } };
   }
 
-  if (envelope.success === true) {
-    if (envelope.data !== undefined) {
-      return { data: envelope.data };
-    }
-    return { data: stripSuccess(envelope) };
+  if (envelopeLooksSuccessful(envelope, response.status)) {
+    const payload = attachEnvelopeMessage(normalizeEnvelopeData(envelope), envelope);
+    return { data: payload };
   }
 
   if (envelope.success === false || !response.ok) {

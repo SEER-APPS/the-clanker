@@ -1,5 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { AdminMe, DashboardPayload, Paginated } from "@/types/admin";
+import { adminTransformResponse } from "@/lib/admin-api-envelope";
 import { adminJsonBaseQuery } from "@/store/admin-base-query";
 
 type FeatureToggleAuditActor = {
@@ -92,15 +93,10 @@ export const adminApi = createApi({
       { page?: number; status?: string; event_type?: string; search?: string }
     >({
       query: (params) => ({ url: "/notifications", params }),
-      transformResponse: (raw: unknown) => {
-        if (raw && typeof raw === "object" && "data" in raw) {
-          const d = (raw as { data?: unknown }).data;
-          if (d && typeof d === "object") {
-            return d as Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> };
-          }
-        }
-        return raw as Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> };
-      },
+      transformResponse: (raw: unknown) =>
+        adminTransformResponse<
+          Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> }
+        >(raw),
       providesTags: ["Notifications"],
     }),
     sendAdminNotification: builder.mutation<
@@ -112,15 +108,7 @@ export const adminApi = createApi({
     }),
     getReloadlyAirtime: builder.query<Record<string, unknown>, { page?: number }>({
       query: (params) => ({ url: "/services/reloadly/airtime", params }),
-      transformResponse: (raw: unknown) => {
-        if (raw && typeof raw === "object" && "data" in raw) {
-          const d = (raw as { data?: unknown }).data;
-          if (d && typeof d === "object") {
-            return d as Record<string, unknown>;
-          }
-        }
-        return raw as Record<string, unknown>;
-      },
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
     }),
     getReloadlyPrepaid: builder.query<Record<string, unknown>, { page?: number }>({
       query: (params) => ({ url: "/services/reloadly/prepaid", params }),
@@ -130,15 +118,8 @@ export const adminApi = createApi({
       { countryIso?: string }
     >({
       query: (params) => ({ url: "/services/reloadly/operators", params }),
-      transformResponse: (raw: unknown) => {
-        if (raw && typeof raw === "object" && "data" in raw) {
-          const d = (raw as { data?: unknown }).data;
-          if (d && typeof d === "object") {
-            return d as { countryIso: string; operators: unknown; mappings: unknown };
-          }
-        }
-        return raw as { countryIso: string; operators: unknown; mappings: unknown };
-      },
+      transformResponse: (raw: unknown) =>
+        adminTransformResponse<{ countryIso: string; operators: unknown; mappings: unknown }>(raw),
     }),
     saveOperatorMappings: builder.mutation<unknown, Record<string, unknown>>({
       query: (body) => ({
@@ -237,15 +218,7 @@ export const adminApi = createApi({
     }),
     getDataCatalogue: builder.query<Record<string, unknown>, void>({
       query: () => "/services/data-catalogue",
-      transformResponse: (raw: unknown) => {
-        if (raw && typeof raw === "object" && "data" in raw) {
-          const d = (raw as { data?: unknown }).data;
-          if (d && typeof d === "object") {
-            return d as Record<string, unknown>;
-          }
-        }
-        return raw as Record<string, unknown>;
-      },
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
     }),
     postDataCatalogueFetch: builder.mutation<unknown, Record<string, unknown>>({
       query: (body) => ({ url: "/services/data-catalogue/fetch", method: "POST", body }),
@@ -274,15 +247,7 @@ export const adminApi = createApi({
     }),
     getHubtelSummary: builder.query<Record<string, unknown>, void>({
       query: () => "/services/hubtel/summary",
-      transformResponse: (raw: unknown) => {
-        if (raw && typeof raw === "object" && "data" in raw) {
-          const d = (raw as { data?: unknown }).data;
-          if (d && typeof d === "object") {
-            return d as Record<string, unknown>;
-          }
-        }
-        return raw as Record<string, unknown>;
-      },
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
       providesTags: ["Hubtel"],
     }),
     getHubtelTransactions: builder.query<
@@ -290,15 +255,7 @@ export const adminApi = createApi({
       Record<string, string | boolean | number | undefined>
     >({
       query: (params) => ({ url: "/services/hubtel/transactions", params }),
-      transformResponse: (raw: unknown) => {
-        if (raw && typeof raw === "object" && "data" in raw) {
-          const d = (raw as { data?: unknown }).data;
-          if (d && typeof d === "object") {
-            return d as Record<string, unknown>;
-          }
-        }
-        return raw as Record<string, unknown>;
-      },
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
       providesTags: ["Hubtel"],
     }),
     getHubtelTransaction: builder.query<Record<string, unknown>, string | number>({
@@ -309,15 +266,7 @@ export const adminApi = createApi({
           ? `/services/hubtel/transactions/${raw}`
           : `/services/hubtel/transactions/uuid/${encodeURIComponent(raw)}`;
       },
-      transformResponse: (raw: unknown) => {
-        if (raw && typeof raw === "object" && "data" in raw) {
-          const d = (raw as { data?: unknown }).data;
-          if (d && typeof d === "object") {
-            return d as Record<string, unknown>;
-          }
-        }
-        return raw as Record<string, unknown>;
-      },
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
       providesTags: (_r, _e, id) => [{ type: "Hubtel", id: String(id) }],
     }),
     deleteHubtelTransaction: builder.mutation<unknown, string | number>({

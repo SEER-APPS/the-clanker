@@ -10,6 +10,7 @@ import {
 } from "@/store/admin-api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { formatAdminMutationError } from "@/lib/admin-api-envelope";
 import { Loader2 } from "lucide-react";
 import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
 import { HubtelTransactionDetailView } from "@/components/hubtel/hubtel-transaction-detail-view";
@@ -36,7 +37,7 @@ export default function HubtelTransactionDetailPage({
       toast.success("Deleted.");
       window.location.href = "/services/hubtel/transactions";
     } catch (err: unknown) {
-      toast.error(parseErr(err));
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -46,7 +47,7 @@ export default function HubtelTransactionDetailPage({
       toast.success("Archived.");
       void refetch();
     } catch (err: unknown) {
-      toast.error(parseErr(err));
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -56,7 +57,7 @@ export default function HubtelTransactionDetailPage({
       toast.success("Refresh requested.");
       void refetch();
     } catch (err: unknown) {
-      toast.error(parseErr(err));
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -141,14 +142,4 @@ export default function HubtelTransactionDetailPage({
       <HubtelTransactionDetailView tx={tx} />
     </article>
   );
-}
-
-function parseErr(err: unknown): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const d = (err as { data?: { message?: string } }).data?.message;
-    if (d) {
-      return d;
-    }
-  }
-  return "Request failed.";
 }

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { toast } from "sonner";
+import { formatAdminMutationError } from "@/lib/admin-api-envelope";
 import { Loader2 } from "lucide-react";
 
 type NetworkRow = {
@@ -82,7 +83,7 @@ export default function ServiceTestsPage(): React.ReactElement {
       setOut(res);
       toast.success("Airtime test sent.");
     } catch (err: unknown) {
-      toast.error(parseErr(err));
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -95,7 +96,7 @@ export default function ServiceTestsPage(): React.ReactElement {
       setBundleList(normalizeBundles(raw));
       toast.success("Bundles loaded.");
     } catch (err: unknown) {
-      toast.error(parseErr(err));
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -113,7 +114,7 @@ export default function ServiceTestsPage(): React.ReactElement {
       setOut(res);
       toast.success("Data top-up test sent.");
     } catch (err: unknown) {
-      toast.error(parseErr(err));
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -492,14 +493,4 @@ export default function ServiceTestsPage(): React.ReactElement {
       ) : null}
     </article>
   );
-}
-
-function parseErr(err: unknown): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const d = (err as { data?: { message?: string } }).data?.message;
-    if (d) {
-      return d;
-    }
-  }
-  return "Request failed.";
 }

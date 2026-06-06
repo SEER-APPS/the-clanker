@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { formatAdminMutationError } from "@/lib/admin-api-envelope";
 import {
   Table,
   TableBody,
@@ -65,7 +66,7 @@ export default function StaffAdminsPage(): React.ReactElement {
       setPasswordConfirmation("");
       void refetch();
     } catch (err: unknown) {
-      toast.error(parseErr(err));
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -301,7 +302,7 @@ export default function StaffAdminsPage(): React.ReactElement {
                                     toast.success(isSuper ? "Demoted." : "Promoted.");
                                     void refetch();
                                   } catch (err) {
-                                    toast.error(parseErr(err));
+                                    toast.error(formatAdminMutationError(err));
                                   } finally {
                                     setRolePendingId(null);
                                   }
@@ -347,7 +348,7 @@ export default function StaffAdminsPage(): React.ReactElement {
                                     toast.success("Removed.");
                                     void refetch();
                                   } catch (err) {
-                                    toast.error(parseErr(err));
+                                    toast.error(formatAdminMutationError(err));
                                   } finally {
                                     setRemovePendingId(null);
                                   }
@@ -387,14 +388,4 @@ export default function StaffAdminsPage(): React.ReactElement {
       </Card>
     </article>
   );
-}
-
-function parseErr(err: unknown): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const m = (err as { data?: { message?: string } }).data?.message;
-    if (m) {
-      return m;
-    }
-  }
-  return "Request failed.";
 }

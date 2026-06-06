@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { toast } from "sonner";
+import { flattenApiData, formatAdminMutationError } from "@/lib/admin-api-envelope";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -54,17 +55,13 @@ export default function DataCataloguePage(): React.ReactElement {
         sample_at: sampleAt || undefined,
         country_iso: countryIso || undefined,
       }).unwrap();
-      const payload = unwrapData(res);
+      const payload = flattenApiData(res);
       const nextPackages = safeArray<CataloguePackage>(payload?.packages);
       setPackages(nextPackages);
       setProviders((payload?.providers as Record<string, unknown> | undefined) ?? null);
       toast.success(`Loaded ${nextPackages.length} packages.`);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "data" in err
-          ? String((err as { data?: { message?: string } }).data?.message ?? "Failed.")
-          : "Failed.";
-      toast.error(msg);
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -79,15 +76,11 @@ export default function DataCataloguePage(): React.ReactElement {
         network,
         provider,
       }).unwrap();
-      const payload = unwrapData(res);
+      const payload = flattenApiData(res);
       setFindOut(payload ?? res);
       toast.success("Lookup completed.");
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "data" in err
-          ? String((err as { data?: { message?: string } }).data?.message ?? "Failed.")
-          : "Failed.";
-      toast.error(msg);
+      toast.error(formatAdminMutationError(err));
     }
   }
 
@@ -339,14 +332,6 @@ export default function DataCataloguePage(): React.ReactElement {
       </Card>
     </article>
   );
-}
-
-function unwrapData(res: unknown): Record<string, unknown> | null {
-  if (!res || typeof res !== "object") return null;
-  if ("data" in res && (res as { data?: unknown }).data && typeof (res as { data?: unknown }).data === "object") {
-    return (res as { data: Record<string, unknown> }).data;
-  }
-  return res as Record<string, unknown>;
 }
 
 function safeArray<T>(value: unknown, fallback: T[] = []): T[] {

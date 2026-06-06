@@ -13,6 +13,13 @@ import {
   useHubtelTestUtilityMutation,
 } from "@/store/admin-api";
 import { isValidHubtelGhanaMobile, toHubtelInternationalFormat } from "@/lib/ghana-phone";
+import {
+  extractHubtelCommissionMeta,
+  extractHubtelTransactionSnapshot,
+  formatAdminMutationError as failMsg,
+  readAdminField,
+} from "@/lib/admin-api-envelope";
+import type { HubtelTestTransactionSnapshot } from "@/components/hubtel/hubtel-test-followup";
 
 export type HubtelEcgMeterOption = {
   meterNumber: string;
@@ -24,15 +31,10 @@ type HubtelEcgPrepaidCardProps = {
   checkoutBusy: boolean;
   anyCheckoutBusy: boolean;
   onCheckout: (body: Record<string, unknown>) => Promise<void>;
+  onCommissionTransaction?: (payload: unknown) => HubtelTestTransactionSnapshot | null;
+  onApiSuccess?: (label: string, payload: unknown) => void;
+  onApiError?: (label: string, error: unknown) => void;
 };
-
-function failMsg(e: unknown): string {
-  if (e && typeof e === "object" && "data" in e) {
-    const m = (e as { data?: { message?: string } }).data?.message;
-    if (m) return m;
-  }
-  return "Request failed.";
-}
 
 function formatOutstanding(amount: number | null): string {
   if (amount === null || !Number.isFinite(amount)) {
@@ -45,6 +47,9 @@ export function HubtelEcgPrepaidCard({
   checkoutBusy,
   anyCheckoutBusy,
   onCheckout,
+  onCommissionTransaction,
+  onApiSuccess,
+  onApiError,
 }: HubtelEcgPrepaidCardProps): React.ReactElement {
   const { data: labConfig } = useHubtelLabConfigQuery();
   const [queryEcg, { isLoading: querying }] = useHubtelQueryUtilityMutation();
@@ -81,20 +86,19 @@ export function HubtelEcgPrepaidCard({
       return;
     }
     setMobile(destination);
-    const res = (await queryEcg({
+    const payload = await queryEcg({
       service: "ecg",
       destination,
-    }).unwrap()) as {
-      meters?: HubtelEcgMeterOption[];
-      meter_count?: number;
-    };
-    const list = res.meters ?? [];
+    }).unwrap();
+    onApiSuccess?.("Query ECG meters", payload);
+    const list = readAdminField<HubtelEcgMeterOption[]>(payload, "meters") ?? [];
+    const meterCount = readAdminField<number>(payload, "meter_count") ?? list.length;
     setMeters(list);
     setSelectedMeter(null);
     if (list.length === 0) {
       toast.message("No meters returned — enter a meter number manually or check Hubtel logs.");
     } else {
-      toast.success(`Found ${res.meter_count ?? list.length} meter(s).`);
+      toast.success(`Found ${meterCount} meter(s).`);
     }
   }
 
@@ -156,8 +160,9 @@ export function HubtelEcgPrepaidCard({
           variant="outline"
           disabled={querying || !mobile.trim()}
           onClick={() => {
-            void loadMeters(mobile).catch((e) => {
-              toast.error(failMsg(e));
+            void loadMeters(mobile).catch((error) => {
+              onApiError?.("Query ECG meters", error);
+              toast.error(failMsg(error));
             });
           }}
         >
@@ -247,15 +252,27 @@ export function HubtelEcgPrepaidCard({
                 }
                 setMobile(destination);
                 try {
-                  await payEcgDirect({
+                  const payload = await payEcgDirect({
                     service: "ecg",
                     destination,
                     amount: amt,
                     meter_number: resolvedMeter,
                   }).unwrap();
-                  toast.success("ECG top-up sent via Commission Services.");
-                } catch (e) {
-                  toast.error(failMsg(e));
+                  onApiSuccess?.("ECG direct (Commission Services)", payload);
+                  onCommissionTransaction?.(payload);
+                  const transaction = extractHubtelTransactionSnapshot(payload);
+                  const hubtelMeta = extractHubtelCommissionMeta(payload);
+                  const ref = transaction?.client_reference ?? "ok";
+                  if (hubtelMeta?.pending || transaction?.response_code === "0001") {
+                    toast.success(
+                      `Hubtel accepted (0001 pending). Ref ${ref}. ECG top-up may complete before callback.`,
+                    );
+                  } else {
+                    toast.success(`ECG top-up sent via Commission Services. Ref ${ref}.`);
+                  }
+                } catch (error) {
+                  onApiError?.("ECG direct (Commission Services)", error);
+                  toast.error(failMsg(error));
                 }
               }}
             >

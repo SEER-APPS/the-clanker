@@ -9,6 +9,7 @@ import {
   useSendAdminNotificationMutation,
 } from "@/store/admin-api";
 import type { Paginated } from "@/types/admin";
+import { formatAdminMutationError, readAdminField } from "@/lib/admin-api-envelope";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
@@ -132,12 +133,15 @@ export default function NotificationsPage(): React.ReactElement {
 
   async function mutateSend(payload: Record<string, unknown>): Promise<void> {
     try {
-      const data = (await sendPush(payload).unwrap()) as Record<string, unknown>;
+      const result = await sendPush(payload).unwrap();
+      const tokenCount = readAdminField<unknown>(result, "token_count");
+      const userCount = readAdminField<unknown>(result, "user_count");
+      const warning = readAdminField<string>(result, "warning");
       toast.success(
-        `Sent (${String(data.token_count ?? "?")} token(s) for ${String(data.user_count ?? "?")} user(s)).${data.warning ? ` ${String(data.warning)}` : ""}`,
+        `Sent (${String(tokenCount ?? "?")} token(s) for ${String(userCount ?? "?")} user(s)).${warning ? ` ${warning}` : ""}`,
       );
-    } catch (e: unknown) {
-      toast.error(parseErrMsg(e));
+    } catch (error: unknown) {
+      toast.error(formatAdminMutationError(error));
     }
   }
 
@@ -597,14 +601,4 @@ export default function NotificationsPage(): React.ReactElement {
 function formatCount(n: number): string {
   if (!Number.isFinite(n)) return "0";
   return n.toLocaleString();
-}
-
-function parseErrMsg(e: unknown): string {
-  if (e && typeof e === "object" && "data" in e) {
-    const d = (e as { data?: { message?: string } }).data?.message;
-    if (d) {
-      return d;
-    }
-  }
-  return "Request failed.";
 }

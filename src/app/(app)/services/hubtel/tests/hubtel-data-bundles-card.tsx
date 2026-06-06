@@ -13,6 +13,13 @@ import {
   useHubtelTestDataBundleMutation,
 } from "@/store/admin-api";
 import { isValidHubtelGhanaMobile, toHubtelInternationalFormat } from "@/lib/ghana-phone";
+import {
+  extractHubtelCommissionMeta,
+  extractHubtelTransactionSnapshot,
+  formatAdminMutationError as failMsg,
+  readAdminField,
+} from "@/lib/admin-api-envelope";
+import type { HubtelTestTransactionSnapshot } from "@/components/hubtel/hubtel-test-followup";
 
 export type HubtelBundleOption = {
   bundleId: string;
@@ -31,15 +38,10 @@ type HubtelDataBundlesCardProps = {
   onCheckout: (
     body: Record<string, unknown>,
   ) => Promise<{ recipientName: string | null } | void>;
+  onCommissionTransaction?: (payload: unknown) => HubtelTestTransactionSnapshot | null;
+  onApiSuccess?: (label: string, payload: unknown) => void;
+  onApiError?: (label: string, error: unknown) => void;
 };
-
-function failMsg(e: unknown): string {
-  if (e && typeof e === "object" && "data" in e) {
-    const m = (e as { data?: { message?: string } }).data?.message;
-    if (m) return m;
-  }
-  return "Request failed.";
-}
 
 export function HubtelDataBundlesCard({
   network,
@@ -49,6 +51,9 @@ export function HubtelDataBundlesCard({
   checkoutBusy,
   anyCheckoutBusy,
   onCheckout,
+  onCommissionTransaction,
+  onApiSuccess,
+  onApiError,
 }: HubtelDataBundlesCardProps): React.ReactElement {
   const { data: labConfig } = useHubtelLabConfigQuery();
   const [qBundle, { isLoading: bundleQuerying }] = useHubtelQueryBundlesMutation();
@@ -70,16 +75,19 @@ export function HubtelDataBundlesCard({
       toast.error("Enter a valid Ghana mobile (e.g. 0548496120 or 2330548496120).");
       return;
     }
-    const res = await qBundle({
+    const payload = await qBundle({
       destination,
       network: net,
     }).unwrap();
-    setBundles(res.bundles);
+    onApiSuccess?.("Query data bundles", payload);
+    const bundleList = readAdminField<HubtelBundleOption[]>(payload, "bundles") ?? [];
+    const bundleCount = readAdminField<number>(payload, "bundle_count") ?? bundleList.length;
+    setBundles(bundleList);
     setSelectedBundle(null);
-    if (res.bundles.length === 0) {
+    if (bundleList.length === 0) {
       toast.message("No bundles returned — inspect server logs / Hubtel raw response.");
     } else {
-      toast.success(`Loaded ${res.bundle_count} bundle(s).`);
+      toast.success(`Loaded ${bundleCount} bundle(s).`);
     }
   }
 
@@ -96,8 +104,9 @@ export function HubtelDataBundlesCard({
   useEffect(() => {
     const phone = prefetchDest.trim();
     if (phone.length < 9) return;
-    void loadBundles(phone, network).catch((e) => {
-      toast.error(failMsg(e));
+    void loadBundles(phone, network).catch((error) => {
+      onApiError?.("Query data bundles", error);
+      toast.error(failMsg(error));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [network]);
@@ -168,8 +177,9 @@ export function HubtelDataBundlesCard({
           variant="outline"
           disabled={bundleQuerying || !prefetchDest.trim()}
           onClick={() => {
-            void loadBundles(prefetchDest, network).catch((e) => {
-              toast.error(failMsg(e));
+            void loadBundles(prefetchDest, network).catch((error) => {
+              onApiError?.("Query data bundles", error);
+              toast.error(failMsg(error));
             });
           }}
         >
@@ -259,15 +269,27 @@ export function HubtelDataBundlesCard({
                   }
                   setRecipient(destination);
                   try {
-                    await testDataBundleDirect({
+                    const payload = await testDataBundleDirect({
                       destination,
                       amount: selectedBundle.amountGhs,
                       bundle: selectedBundle.bundleId,
                       network,
                     }).unwrap();
-                    toast.success("Data bundle sent via Commission Services.");
-                  } catch (e) {
-                    toast.error(failMsg(e));
+                    onApiSuccess?.("Data bundle direct (Commission Services)", payload);
+                    onCommissionTransaction?.(payload);
+                    const transaction = extractHubtelTransactionSnapshot(payload);
+                    const hubtelMeta = extractHubtelCommissionMeta(payload);
+                    const ref = transaction?.client_reference ?? "ok";
+                    if (hubtelMeta?.pending || transaction?.response_code === "0001") {
+                      toast.success(
+                        `Hubtel accepted (0001 pending). Ref ${ref}. Bundle may deliver before callback.`,
+                      );
+                    } else {
+                      toast.success(`Data bundle sent via Commission Services. Ref ${ref}.`);
+                    }
+                  } catch (error) {
+                    onApiError?.("Data bundle direct (Commission Services)", error);
+                    toast.error(failMsg(error));
                   }
                 }}
               >

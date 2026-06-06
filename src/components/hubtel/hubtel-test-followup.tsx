@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
+import { isHubtelTransactionPending } from "@/lib/admin-api-envelope";
 
 export type HubtelTestTransactionSnapshot = {
   id?: number;
@@ -19,6 +20,7 @@ type HubtelTestFollowupProps = {
   title?: string;
   transaction: HubtelTestTransactionSnapshot | null;
   statusChecking: boolean;
+  autoPolling?: boolean;
   onCheckStatus: () => void;
   hubtelStatusLabel?: string | null;
 };
@@ -27,12 +29,15 @@ export function HubtelTestFollowup({
   title = "Last Hubtel transaction",
   transaction,
   statusChecking,
+  autoPolling = false,
   onCheckStatus,
   hubtelStatusLabel,
 }: HubtelTestFollowupProps): React.ReactElement | null {
   if (!transaction?.client_reference) {
     return null;
   }
+
+  const pending = isHubtelTransactionPending(transaction);
 
   const detailHref =
     transaction.id != null
@@ -50,7 +55,13 @@ export function HubtelTestFollowup({
         {transaction.response_code ? (
           <span>Hubtel code: {transaction.response_code}</span>
         ) : null}
-        {hubtelStatusLabel ? <span>Status API: {hubtelStatusLabel}</span> : null}
+        {hubtelStatusLabel ? <span>Status: {hubtelStatusLabel}</span> : null}
+        {autoPolling ? (
+          <span className="text-primary inline-flex items-center gap-1">
+            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+            Auto-checking every 5s…
+          </span>
+        ) : null}
       </div>
       {transaction.recipient ? (
         <p className="text-muted-foreground text-xs">
@@ -67,7 +78,7 @@ export function HubtelTestFollowup({
           type="button"
           size="sm"
           variant="secondary"
-          disabled={statusChecking}
+          disabled={statusChecking || autoPolling}
           aria-busy={statusChecking}
           onClick={onCheckStatus}
         >
@@ -90,8 +101,17 @@ export function HubtelTestFollowup({
         ) : null}
       </div>
       <p className="text-muted-foreground text-xs">
-        Response code <strong>0001</strong> means pending — approve delivery via Hubtel callback or run status
-        check after a minute.
+        {pending ? (
+          <>
+            Response code <strong>0001</strong> means pending. This panel auto-polls the stored
+            transaction until Hubtel callback updates it (or you check manually).
+          </>
+        ) : (
+          <>
+            Final status is stored in <code className="text-xs">hubtel_transactions</code> and
+            updated via <code className="text-xs">HUBTEL_CALLBACK_URL</code>.
+          </>
+        )}
       </p>
     </section>
   );
