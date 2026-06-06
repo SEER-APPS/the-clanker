@@ -70,14 +70,35 @@ export const adminJsonBaseQuery: BaseQueryFn<
 
   const response = await fetch(`${API_PREFIX}${path}`, init);
 
+  const rawText = await response.text();
   let json: unknown;
-  try {
-    json = await response.json();
-  } catch {
+  if (rawText.trim().length === 0) {
     return {
       error: {
-        status: response.status || 500,
-        data: { success: false, message: "Invalid JSON from server." },
+        status: response.status || 502,
+        data: {
+          success: false,
+          message: `Server returned an empty response (HTTP ${response.status || 502}).`,
+        },
+      },
+    };
+  }
+
+  try {
+    json = JSON.parse(rawText) as unknown;
+  } catch {
+    const contentType = response.headers.get("content-type") ?? "";
+    const preview = rawText.replace(/\s+/g, " ").trim().slice(0, 240);
+    return {
+      error: {
+        status: response.status || 502,
+        data: {
+          success: false,
+          message: preview
+            ? `Server returned non-JSON (HTTP ${response.status}): ${preview}`
+            : "Server returned a non-JSON response.",
+          content_type: contentType,
+        },
       },
     };
   }
