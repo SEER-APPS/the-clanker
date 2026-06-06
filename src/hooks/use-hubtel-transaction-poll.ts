@@ -17,7 +17,6 @@ type UseHubtelTransactionPollOptions = {
   transaction: HubtelTransactionSnapshot | null;
   onTransactionUpdate: (transaction: HubtelTransactionSnapshot) => void;
   onStatusLabelUpdate?: (label: string | null) => void;
-  onPollResponse?: (payload: unknown) => void;
   pollIntervalMs?: number;
   firstPollDelayMs?: number;
   maxAttempts?: number;
@@ -28,7 +27,6 @@ export function useHubtelTransactionPoll({
   transaction,
   onTransactionUpdate,
   onStatusLabelUpdate,
-  onPollResponse,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   firstPollDelayMs = DEFAULT_FIRST_POLL_DELAY_MS,
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
@@ -65,7 +63,6 @@ export function useHubtelTransactionPoll({
 
       try {
         const payload = await hubtelStatusCheck({ client_reference: clientReference }).unwrap();
-        onPollResponse?.(payload);
         const result = extractHubtelStatusCheckResult(payload);
         if (result.transaction) {
           onTransactionUpdate(result.transaction);
@@ -132,7 +129,6 @@ export function useHubtelTransactionPoll({
     hubtelStatusCheck,
     onTransactionUpdate,
     onStatusLabelUpdate,
-    onPollResponse,
     pollIntervalMs,
     firstPollDelayMs,
     maxAttempts,

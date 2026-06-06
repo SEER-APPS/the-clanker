@@ -112,7 +112,24 @@ export const adminJsonBaseQuery: BaseQueryFn<
     }
   }
 
-  const response = await fetch(`${API_PREFIX}${path}`, init);
+  let response: Response;
+  try {
+    response = await fetch(`${API_PREFIX}${path}`, init);
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : "Network error — could not reach the server.";
+    return {
+      error: {
+        status: 0,
+        data: {
+          success: false,
+          message,
+        },
+      },
+    };
+  }
 
   const rawText = await response.text();
   let json: unknown;

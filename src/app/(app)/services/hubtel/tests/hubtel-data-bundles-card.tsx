@@ -39,8 +39,6 @@ type HubtelDataBundlesCardProps = {
     body: Record<string, unknown>,
   ) => Promise<{ recipientName: string | null } | void>;
   onCommissionTransaction?: (payload: unknown) => HubtelTestTransactionSnapshot | null;
-  onApiSuccess?: (label: string, payload: unknown) => void;
-  onApiError?: (label: string, error: unknown) => void;
 };
 
 export function HubtelDataBundlesCard({
@@ -52,8 +50,6 @@ export function HubtelDataBundlesCard({
   anyCheckoutBusy,
   onCheckout,
   onCommissionTransaction,
-  onApiSuccess,
-  onApiError,
 }: HubtelDataBundlesCardProps): React.ReactElement {
   const { data: labConfig } = useHubtelLabConfigQuery();
   const [qBundle, { isLoading: bundleQuerying }] = useHubtelQueryBundlesMutation();
@@ -79,7 +75,6 @@ export function HubtelDataBundlesCard({
       destination,
       network: net,
     }).unwrap();
-    onApiSuccess?.("Query data bundles", payload);
     const bundleList = readAdminField<HubtelBundleOption[]>(payload, "bundles") ?? [];
     const bundleCount = readAdminField<number>(payload, "bundle_count") ?? bundleList.length;
     setBundles(bundleList);
@@ -105,7 +100,6 @@ export function HubtelDataBundlesCard({
     const phone = prefetchDest.trim();
     if (phone.length < 9) return;
     void loadBundles(phone, network).catch((error) => {
-      onApiError?.("Query data bundles", error);
       toast.error(failMsg(error));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -178,7 +172,6 @@ export function HubtelDataBundlesCard({
           disabled={bundleQuerying || !prefetchDest.trim()}
           onClick={() => {
             void loadBundles(prefetchDest, network).catch((error) => {
-              onApiError?.("Query data bundles", error);
               toast.error(failMsg(error));
             });
           }}
@@ -275,7 +268,6 @@ export function HubtelDataBundlesCard({
                       bundle: selectedBundle.bundleId,
                       network,
                     }).unwrap();
-                    onApiSuccess?.("Data bundle direct (Commission Services)", payload);
                     onCommissionTransaction?.(payload);
                     const transaction = extractHubtelTransactionSnapshot(payload);
                     const hubtelMeta = extractHubtelCommissionMeta(payload);
@@ -288,7 +280,6 @@ export function HubtelDataBundlesCard({
                       toast.success(`Data bundle sent via Commission Services. Ref ${ref}.`);
                     }
                   } catch (error) {
-                    onApiError?.("Data bundle direct (Commission Services)", error);
                     toast.error(failMsg(error));
                   }
                 }}

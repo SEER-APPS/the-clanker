@@ -29,6 +29,9 @@ export function adminTransformResponse<T>(raw: unknown): T {
 }
 
 export function formatAdminMutationError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message.trim() || "Request failed.";
+  }
   if (!error || typeof error !== "object") {
     return "Request failed.";
   }
@@ -36,90 +39,67 @@ export function formatAdminMutationError(error: unknown): string {
     status?: number | string;
     error?: string;
     data?: unknown;
+    message?: string;
   };
+
+  if (record.status === "FETCH_ERROR" || record.status === "TIMEOUT_ERROR") {
+    const networkPayload = flattenApiData(record.data);
+    if (typeof networkPayload?.message === "string" && networkPayload.message.trim()) {
+      return networkPayload.message;
+    }
+    if (typeof record.error === "string" && record.error.trim()) {
+      return record.error;
+    }
+    return "Network error — could not reach the server.";
+  }
+
+  const envelope = record.data;
+  if (envelope && typeof envelope === "object" && !Array.isArray(envelope)) {
+    const envRecord = envelope as Record<string, unknown>;
+    if (typeof envRecord.message === "string" && envRecord.message.trim()) {
+      return envRecord.message;
+    }
+    if (envRecord.issues) {
+      return formatValidationIssues(envRecord.issues);
+    }
+  }
+
   const flat = flattenApiData(record.data ?? record);
-  const message = flat?.message;
-  if (typeof message === "string" && message.trim()) {
-    return message;
+  const nestedMessage = flat?.message;
+  if (typeof nestedMessage === "string" && nestedMessage.trim()) {
+    return nestedMessage;
   }
   if (typeof record.error === "string" && record.error.trim()) {
     return record.error;
   }
   if (flat?.issues) {
-    return "Validation failed. Check your inputs.";
+    return formatValidationIssues(flat.issues);
   }
-  if (record.status != null) {
+  if (record.status != null && record.status !== "CUSTOM_ERROR") {
     return `Request failed (HTTP ${String(record.status)}).`;
   }
   return "Request failed.";
 }
 
-export function extractMutationErrorPayload(error: unknown): Record<string, unknown> {
-  if (!error || typeof error !== "object") {
-    return { message: "Request failed." };
+function formatValidationIssues(issues: unknown): string {
+  if (!issues || typeof issues !== "object") {
+    return "Validation failed. Check your inputs.";
   }
-  const record = error as {
-    status?: number | string;
-    error?: string;
-    data?: unknown;
+  const record = issues as {
+    fieldErrors?: Record<string, string[]>;
+    formErrors?: string[];
   };
-  const flat = flattenApiData(record.data ?? record);
-  return {
-    http_status: record.status ?? null,
-    error: typeof record.error === "string" ? record.error : null,
-    message: typeof flat?.message === "string" ? flat.message : null,
-    ...(flat ?? {}),
-  };
-}
-
-export function isPendingHubtelResponse(payload: unknown): boolean {
-  const flat = flattenApiData(payload);
-  if (!flat) {
-    return false;
+  const formErrors = record.formErrors ?? [];
+  if (formErrors.length > 0) {
+    return formErrors.join(" ");
   }
-  const hubtelBlock = flat.hubtel;
-  const hubtelRecord =
-    hubtelBlock && typeof hubtelBlock === "object" && !Array.isArray(hubtelBlock)
-      ? (hubtelBlock as Record<string, unknown>)
-      : null;
-  const responseCode =
-    flat.response_code ??
-    hubtelRecord?.response_code ??
-    flat.hubtel_response_code ??
-    readAdminField<{ response_code?: string }>(payload, "transaction")?.response_code;
-  if (responseCode === "0001") {
-    return true;
+  const fieldMessages = Object.entries(record.fieldErrors ?? {}).flatMap(
+    ([field, messages]) => (messages ?? []).map((message) => `${field}: ${message}`),
+  );
+  if (fieldMessages.length > 0) {
+    return fieldMessages.join("; ");
   }
-  if (flat.pending_customer_approval === true || hubtelRecord?.pending === true) {
-    return true;
-  }
-  const transaction = flat.transaction;
-  if (transaction && typeof transaction === "object" && !Array.isArray(transaction)) {
-    const transactionRecord = transaction as Record<string, unknown>;
-    if (transactionRecord.response_code === "0001") {
-      return true;
-    }
-    const status = String(transactionRecord.status ?? "").toLowerCase();
-    if (status === "pending" || status === "pending_payment") {
-      return responseCode == null || responseCode === "0001";
-    }
-  }
-  return false;
-}
-
-export function serializeApiPayloadForDisplay(payload: unknown): string {
-  try {
-    return JSON.stringify(payload, null, 2);
-  } catch {
-    return String(payload);
-  }
-}
-
-export function pendingHubtelResponseHint(payload: unknown): string | null {
-  if (!isPendingHubtelResponse(payload)) {
-    return null;
-  }
-  return "Pending (0001) — Hubtel accepted the request. Waiting for payment or callback. This is not a failure.";
+  return "Validation failed. Check your inputs.";
 }
 
 export function extractPayDirectResult(payload: unknown): {
@@ -129,13 +109,21 @@ export function extractPayDirectResult(payload: unknown): {
   message: string | null;
   hubtelResponseCode: string | null;
 } {
+  let envelopeMessage: string | null = null;
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    const topLevel = payload as Record<string, unknown>;
+    if (typeof topLevel.message === "string" && topLevel.message.trim()) {
+      envelopeMessage = topLevel.message;
+    }
+  }
+
   const flat = flattenApiData(payload);
   if (!flat) {
     return {
       orderUuid: null,
       clientReference: null,
       pendingApproval: false,
-      message: null,
+      message: envelopeMessage,
       hubtelResponseCode: null,
     };
   }
@@ -146,11 +134,13 @@ export function extractPayDirectResult(payload: unknown): {
       ? (hubtelBlock as Record<string, unknown>)
       : null;
 
+  const nestedMessage = typeof flat.message === "string" ? flat.message : null;
+
   return {
     orderUuid: typeof flat.order_uuid === "string" ? flat.order_uuid : null,
     clientReference: typeof flat.client_reference === "string" ? flat.client_reference : null,
     pendingApproval: flat.pending_customer_approval === true,
-    message: typeof flat.message === "string" ? flat.message : null,
+    message: nestedMessage ?? envelopeMessage,
     hubtelResponseCode:
       typeof hubtelRecord?.response_code === "string"
         ? hubtelRecord.response_code

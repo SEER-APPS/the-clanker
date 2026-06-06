@@ -44,8 +44,6 @@ import {
   formatAdminMutationError as failMsg,
 } from "@/lib/admin-api-envelope";
 import { useHubtelTransactionPoll } from "@/hooks/use-hubtel-transaction-poll";
-import { useAdminApiResponse } from "@/hooks/use-admin-api-response";
-import { AdminApiResponsePanel } from "@/components/admin/admin-api-response-panel";
 
 type UtilityServiceKey =
   | "ecg"
@@ -114,15 +112,10 @@ export default function HubtelTestsPage(): React.ReactElement {
     },
   );
 
-  const { lastResponse, recordSuccess, recordError, clearResponse } = useAdminApiResponse();
-
   const { polling: hubtelAutoPolling } = useHubtelTransactionPoll({
     transaction: lastCsTransaction,
     onTransactionUpdate: setLastCsTransaction,
     onStatusLabelUpdate: setHubtelStatusLabel,
-    onPollResponse: (payload) => {
-      recordSuccess("Hubtel status check (auto-poll)", payload);
-    },
   });
 
   function applyCommissionPayload(payload: unknown): HubtelTestTransactionSnapshot | null {
@@ -136,7 +129,6 @@ export default function HubtelTestsPage(): React.ReactElement {
   async function checkHubtelTransactionStatus(clientReference: string): Promise<void> {
     try {
       const payload = await hubtelStatusCheck({ client_reference: clientReference }).unwrap();
-      recordSuccess("Hubtel status check", payload);
       const result = extractHubtelStatusCheckResult(payload);
       setHubtelStatusLabel(result.hubtelStatusLabel);
       if (result.transaction) {
@@ -148,7 +140,6 @@ export default function HubtelTestsPage(): React.ReactElement {
           : result.hubtelMessage ?? "Status check completed.",
       );
     } catch (error) {
-      recordError("Hubtel status check", error);
       toast.error(failMsg(error));
     }
   }
@@ -179,34 +170,28 @@ export default function HubtelTestsPage(): React.ReactElement {
   async function startCheckout(
     body: Record<string, unknown>,
   ): Promise<{ recipientName: string | null }> {
-    try {
-      const res = await createOrder({
-        ...body,
-        checkout_return_base_url:
-          typeof window !== "undefined" ? window.location.origin : undefined,
-      }).unwrap();
-      recordSuccess("Create service order (checkout)", res);
-      const { orderUuid: oid, checkoutUrl: url, checkoutId: cid, recipientName } =
-        extractOrderCheckoutFields(res);
+    const res = await createOrder({
+      ...body,
+      checkout_return_base_url:
+        typeof window !== "undefined" ? window.location.origin : undefined,
+    }).unwrap();
+    const { orderUuid: oid, checkoutUrl: url, checkoutId: cid, recipientName } =
+      extractOrderCheckoutFields(res);
 
-      if (!url || !oid) {
-        toast.warning(
-          "Order created (201) but checkout URL or order id missing — inspect the response panel.",
-        );
-        return { recipientName: null };
-      }
-
-      setCheckoutUrl(url);
-      setOrderUuid(oid);
-      setCheckoutId(cid);
-      setCheckoutOpen(true);
-      window.open(url, "_blank", "noopener,noreferrer");
-      toast.success("Checkout opened in a new tab.");
-      return { recipientName };
-    } catch (error) {
-      recordError("Create service order (checkout)", error);
-      throw error;
+    if (!url || !oid) {
+      toast.warning(
+        "Order created (201) but checkout URL or order id missing — check the Network tab response.",
+      );
+      return { recipientName: null };
     }
+
+    setCheckoutUrl(url);
+    setOrderUuid(oid);
+    setCheckoutId(cid);
+    setCheckoutOpen(true);
+    window.open(url, "_blank", "noopener,noreferrer");
+    toast.success("Checkout opened in a new tab.");
+    return { recipientName };
   }
 
   return (
@@ -223,8 +208,6 @@ export default function HubtelTestsPage(): React.ReactElement {
           These calls hit live provider endpoints. Use staging credentials when available.
         </p>
       </header>
-
-      <AdminApiResponsePanel response={lastResponse} onClear={clearResponse} />
 
       <Card>
         <CardHeader>
@@ -259,10 +242,8 @@ export default function HubtelTestsPage(): React.ReactElement {
               onClick={async () => {
                 try {
                   const res = await sms({ phone: smsPhone, message: smsMsg }).unwrap();
-                  recordSuccess("Send SMS", res);
                   toast.success("SMS request finished.");
                 } catch (error) {
-                  recordError("Send SMS", error);
                   toast.error(failMsg(error));
                 }
               }}
@@ -283,14 +264,12 @@ export default function HubtelTestsPage(): React.ReactElement {
               aria-busy={smsBatchSending}
               onClick={async () => {
                 try {
-                  const res = await smsBatch({
+                  await smsBatch({
                     recipients: batchRecipients,
                     message: smsMsg,
                   }).unwrap();
-                  recordSuccess("Send SMS batch", res);
                   toast.success("Batch finished.");
                 } catch (error) {
-                  recordError("Send SMS batch", error);
                   toast.error(failMsg(error));
                 }
               }}
@@ -409,7 +388,6 @@ export default function HubtelTestsPage(): React.ReactElement {
                     amount: Number(airAmt),
                     network: airNet,
                   }).unwrap();
-                  recordSuccess("Airtime direct (Commission Services)", payload);
                   const transaction = applyCommissionPayload(payload);
                   const hubtelMeta = extractHubtelCommissionMeta(payload);
                   const ref = transaction?.client_reference ?? "ok";
@@ -421,7 +399,6 @@ export default function HubtelTestsPage(): React.ReactElement {
                     toast.success(`Commission Services completed. Ref ${ref}.`);
                   }
                 } catch (error) {
-                  recordError("Airtime direct (Commission Services)", error);
                   toast.error(failMsg(error));
                 }
               }}
@@ -499,7 +476,6 @@ export default function HubtelTestsPage(): React.ReactElement {
                     payer_phone: toHubtelInternationalFormat(airPayeePhone),
                     description: `Airtime for ${toHubtelInternationalFormat(airDest)}`,
                   }).unwrap();
-                  recordSuccess("Pay direct (MoMo push)", payload);
                   const directResult = extractPayDirectResult(payload);
                   if (directResult.orderUuid) {
                     setOrderUuid(directResult.orderUuid);
@@ -520,7 +496,15 @@ export default function HubtelTestsPage(): React.ReactElement {
                       : "MoMo prompt sent. Approve on the payer phone.");
                   toast.success(toastMessage);
                 } catch (error) {
-                  recordError("Pay direct (MoMo push)", error);
+                  const errorPayload =
+                    error && typeof error === "object" && "data" in error
+                      ? (error as { data: unknown }).data
+                      : error;
+                  const directResult = extractPayDirectResult(errorPayload);
+                  if (directResult.orderUuid) {
+                    setOrderUuid(directResult.orderUuid);
+                    setCheckoutOpen(true);
+                  }
                   toast.error(failMsg(error));
                 }
               }}
@@ -561,8 +545,6 @@ export default function HubtelTestsPage(): React.ReactElement {
         checkoutBusy={dataBundleCheckoutBusy}
         anyCheckoutBusy={anyCheckoutBusy}
         onCommissionTransaction={applyCommissionPayload}
-        onApiSuccess={recordSuccess}
-        onApiError={recordError}
         onCheckout={async (body) => {
           setDataBundleCheckoutBusy(true);
           try {
@@ -580,8 +562,6 @@ export default function HubtelTestsPage(): React.ReactElement {
         checkoutBusy={ecgCheckoutBusy}
         anyCheckoutBusy={anyCheckoutBusy}
         onCommissionTransaction={applyCommissionPayload}
-        onApiSuccess={recordSuccess}
-        onApiError={recordError}
         onCheckout={async (body) => {
           setEcgCheckoutBusy(true);
           try {
@@ -696,10 +676,8 @@ export default function HubtelTestsPage(): React.ReactElement {
                   }
                   const body = buildUtilityQueryPayload(utilService, utilRef, utilMobile);
                   const payload = await qUtil(body).unwrap();
-                  recordSuccess("Utility query", payload);
-                  toast.success("Query completed. See response panel for details.");
+                  toast.success("Query completed. Check the Network tab for the full JSON response.");
                 } catch (error) {
-                  recordError("Utility query", error);
                   toast.error(failMsg(error));
                 }
               }}
@@ -766,11 +744,9 @@ export default function HubtelTestsPage(): React.ReactElement {
             aria-busy={hubtelSyncing}
             onClick={async () => {
               try {
-                const payload = await sync().unwrap();
-                recordSuccess("Sync pending Hubtel records", payload);
+                await sync().unwrap();
                 toast.success("Sync invoked.");
               } catch (error) {
-                recordError("Sync pending Hubtel records", error);
                 toast.error(failMsg(error));
               }
             }}
@@ -819,10 +795,8 @@ export default function HubtelTestsPage(): React.ReactElement {
                     if (!orderUuid) return;
                     try {
                       const res = await getStatus({ uuid: orderUuid }).unwrap();
-                      recordSuccess("Order status", res);
                       toast.success(formatOrderStatusToast(res));
                     } catch (error) {
-                      recordError("Order status", error);
                       toast.error(failMsg(error));
                     }
                   }}
@@ -880,10 +854,8 @@ export default function HubtelTestsPage(): React.ReactElement {
                     if (!orderUuid) return;
                     try {
                       const res = await getStatus({ uuid: orderUuid }).unwrap();
-                      recordSuccess("Order status", res);
                       toast.success(formatOrderStatusToast(res));
                     } catch (error) {
-                      recordError("Order status", error);
                       toast.error(failMsg(error));
                     }
                   }}
@@ -906,10 +878,8 @@ export default function HubtelTestsPage(): React.ReactElement {
                     if (!checkoutId) return;
                     try {
                       const res = await getPaymentStatus({ checkoutId }).unwrap();
-                      recordSuccess("Payment status (checkout)", res);
                       toast.success(formatPaymentStatusToast(res));
                     } catch (error) {
-                      recordError("Payment status (checkout)", error);
                       toast.error(failMsg(error));
                     }
                   }}

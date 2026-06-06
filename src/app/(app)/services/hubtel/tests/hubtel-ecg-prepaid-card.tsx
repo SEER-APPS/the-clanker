@@ -32,8 +32,6 @@ type HubtelEcgPrepaidCardProps = {
   anyCheckoutBusy: boolean;
   onCheckout: (body: Record<string, unknown>) => Promise<void>;
   onCommissionTransaction?: (payload: unknown) => HubtelTestTransactionSnapshot | null;
-  onApiSuccess?: (label: string, payload: unknown) => void;
-  onApiError?: (label: string, error: unknown) => void;
 };
 
 function formatOutstanding(amount: number | null): string {
@@ -48,8 +46,6 @@ export function HubtelEcgPrepaidCard({
   anyCheckoutBusy,
   onCheckout,
   onCommissionTransaction,
-  onApiSuccess,
-  onApiError,
 }: HubtelEcgPrepaidCardProps): React.ReactElement {
   const { data: labConfig } = useHubtelLabConfigQuery();
   const [queryEcg, { isLoading: querying }] = useHubtelQueryUtilityMutation();
@@ -90,7 +86,6 @@ export function HubtelEcgPrepaidCard({
       service: "ecg",
       destination,
     }).unwrap();
-    onApiSuccess?.("Query ECG meters", payload);
     const list = readAdminField<HubtelEcgMeterOption[]>(payload, "meters") ?? [];
     const meterCount = readAdminField<number>(payload, "meter_count") ?? list.length;
     setMeters(list);
@@ -161,7 +156,6 @@ export function HubtelEcgPrepaidCard({
           disabled={querying || !mobile.trim()}
           onClick={() => {
             void loadMeters(mobile).catch((error) => {
-              onApiError?.("Query ECG meters", error);
               toast.error(failMsg(error));
             });
           }}
@@ -258,7 +252,6 @@ export function HubtelEcgPrepaidCard({
                     amount: amt,
                     meter_number: resolvedMeter,
                   }).unwrap();
-                  onApiSuccess?.("ECG direct (Commission Services)", payload);
                   onCommissionTransaction?.(payload);
                   const transaction = extractHubtelTransactionSnapshot(payload);
                   const hubtelMeta = extractHubtelCommissionMeta(payload);
@@ -271,7 +264,6 @@ export function HubtelEcgPrepaidCard({
                     toast.success(`ECG top-up sent via Commission Services. Ref ${ref}.`);
                   }
                 } catch (error) {
-                  onApiError?.("ECG direct (Commission Services)", error);
                   toast.error(failMsg(error));
                 }
               }}
