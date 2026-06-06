@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 
 export type HubtelTestTransactionSnapshot = {
@@ -81,9 +81,12 @@ export function HubtelTestFollowup({
           )}
         </Button>
         {detailHref ? (
-          <Button type="button" size="sm" variant="outline" asChild>
-            <Link href={detailHref}>Open transaction</Link>
-          </Button>
+          <Link
+            href={detailHref}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Open transaction
+          </Link>
         ) : null}
       </div>
       <p className="text-muted-foreground text-xs">
