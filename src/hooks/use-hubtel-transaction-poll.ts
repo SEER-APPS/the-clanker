@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   extractHubtelStatusCheckResult,
+  isHubtelPaymentCheckTerminal,
   isHubtelTransactionPending,
+  mergeHubtelStatusCheckIntoTransaction,
   type HubtelTransactionSnapshot,
 } from "@/lib/admin-api-envelope";
 import { useHubtelStatusCheckMutation } from "@/store/admin-api";
@@ -43,7 +45,11 @@ export function useHubtelTransactionPoll({
 
   useEffect(() => {
     const clientReference = transaction?.client_reference;
-    const pending = isHubtelTransactionPending(transaction);
+    const status = transaction?.status?.toLowerCase() ?? "";
+    const pending =
+      isHubtelTransactionPending(transaction) &&
+      status !== "success" &&
+      transaction?.response_code !== "0000";
     if (!clientReference || !pending) {
       setPolling(false);
       attemptsRef.current = 0;
@@ -56,7 +62,7 @@ export function useHubtelTransactionPoll({
     attemptsRef.current = 0;
 
     async function pollOnce(): Promise<boolean> {
-      if (cancelled || attemptsRef.current >= maxAttempts) {
+      if (cancelled || attemptsRef.current >= maxAttempts || !transaction) {
         return true;
       }
       attemptsRef.current += 1;
@@ -64,23 +70,27 @@ export function useHubtelTransactionPoll({
       try {
         const payload = await hubtelStatusCheck({ client_reference: clientReference }).unwrap();
         const result = extractHubtelStatusCheckResult(payload);
-        if (result.transaction) {
-          onTransactionUpdate(result.transaction);
-        }
+        const snapshot = mergeHubtelStatusCheckIntoTransaction(transaction, payload);
+        onTransactionUpdate(snapshot);
         if (result.hubtelStatusLabel) {
           onStatusLabelUpdate?.(result.hubtelStatusLabel);
         }
 
-        const snapshot = result.transaction ?? transaction;
-        if (snapshot && !isHubtelTransactionPending(snapshot)) {
-          const terminalKey = `${snapshot.client_reference}:${snapshot.status}`;
+        const paymentTerminal = isHubtelPaymentCheckTerminal(payload);
+        if (!isHubtelTransactionPending(snapshot) || paymentTerminal) {
+          const terminalKey = `${snapshot.client_reference}:${snapshot.status}:${result.hubtelStatusLabel ?? ""}`;
           if (showTerminalToast && terminalToastShownRef.current !== terminalKey) {
             terminalToastShownRef.current = terminalKey;
             const status = snapshot.status?.toLowerCase() ?? "";
-            if (status === "success" || status === "delivered") {
-              toast.success("Hubtel transaction completed.");
-            } else if (status === "failed") {
-              toast.error("Hubtel transaction failed.");
+            const hubtelLabel = result.hubtelStatusLabel?.toLowerCase() ?? "";
+            if (
+              status === "success" ||
+              status === "delivered" ||
+              hubtelLabel === "paid"
+            ) {
+              toast.success("Hubtel payment confirmed.");
+            } else if (status === "failed" || hubtelLabel === "failed") {
+              toast.error("Hubtel payment failed.");
             }
           }
           return true;

@@ -30,7 +30,13 @@ export type HubtelEcgMeterOption = {
 type HubtelEcgPrepaidCardProps = {
   checkoutBusy: boolean;
   anyCheckoutBusy: boolean;
+  payDirectBusy?: boolean;
   onCheckout: (body: Record<string, unknown>) => Promise<void>;
+  onPayDirect?: (
+    body: Record<string, unknown>,
+    recipient: string,
+    pendingHint: string,
+  ) => Promise<HubtelTestTransactionSnapshot | null>;
   onCommissionTransaction?: (payload: unknown) => HubtelTestTransactionSnapshot | null;
 };
 
@@ -44,7 +50,9 @@ function formatOutstanding(amount: number | null): string {
 export function HubtelEcgPrepaidCard({
   checkoutBusy,
   anyCheckoutBusy,
+  payDirectBusy = false,
   onCheckout,
+  onPayDirect,
   onCommissionTransaction,
 }: HubtelEcgPrepaidCardProps): React.ReactElement {
   const { data: labConfig } = useHubtelLabConfigQuery();
@@ -69,7 +77,7 @@ export function HubtelEcgPrepaidCard({
   }, [labConfig, mobile, payeePhone]);
 
   const resolvedMeter = (selectedMeter?.meterNumber ?? manualMeter).trim();
-  const actionsBusy = querying || directPaying || checkoutBusy;
+  const actionsBusy = querying || directPaying || checkoutBusy || payDirectBusy;
 
   function normalizePhoneInput(value: string): string {
     return toHubtelInternationalFormat(value);
@@ -225,11 +233,10 @@ export function HubtelEcgPrepaidCard({
               placeholder="e.g. 50"
             />
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2">
             <Button
               type="button"
               variant="outline"
-              className="flex-1"
               disabled={
                 actionsBusy || anyCheckoutBusy || !mobile.trim() || !resolvedMeter || !amountGhs.trim()
               }
@@ -274,12 +281,65 @@ export function HubtelEcgPrepaidCard({
                   Paying…
                 </>
               ) : (
-                "Pay ECG direct (CS)"
+                "1. Pay ECG direct (Commission Services)"
               )}
             </Button>
             <Button
               type="button"
-              className="flex-1"
+              variant="secondary"
+              disabled={
+                actionsBusy ||
+                anyCheckoutBusy ||
+                !mobile.trim() ||
+                !resolvedMeter ||
+                !amountGhs.trim() ||
+                !isValidHubtelGhanaMobile(payeePhone)
+              }
+              onClick={async () => {
+                const amt = Number(amountGhs);
+                if (!Number.isFinite(amt) || amt <= 0) {
+                  toast.error("Enter a valid amount.");
+                  return;
+                }
+                const destination = normalizePhoneInput(mobile);
+                if (!isValidHubtelGhanaMobile(destination)) {
+                  toast.error("Enter a valid Ghana mobile.");
+                  return;
+                }
+                if (!onPayDirect) {
+                  return;
+                }
+                setMobile(destination);
+                const payerPhone = normalizePhoneInput(payeePhone);
+                await onPayDirect(
+                  {
+                    product: "ecg",
+                    recipient: destination,
+                    delivery_amount: amt,
+                    charged_amount: amt,
+                    payer_phone: payerPhone,
+                    description: `ECG prepaid for meter ${resolvedMeter}`,
+                    metadata: {
+                      customer_phone: destination,
+                      meter_number: resolvedMeter,
+                    },
+                  },
+                  destination,
+                  "MoMo prompt sent (0001 pending). Approve on your phone — ECG top-up delivers after payment.",
+                );
+              }}
+            >
+              {payDirectBusy ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  Sending MoMo prompt…
+                </>
+              ) : (
+                "2. Direct MoMo pay (push prompt) + deliver"
+              )}
+            </Button>
+            <Button
+              type="button"
               disabled={
                 actionsBusy || anyCheckoutBusy || !mobile.trim() || !resolvedMeter || !amountGhs.trim()
               }
@@ -319,7 +379,7 @@ export function HubtelEcgPrepaidCard({
                   Processing…
                 </>
               ) : (
-                "Checkout & pay ECG"
+                "3. Online checkout (browser) + deliver"
               )}
             </Button>
           </div>

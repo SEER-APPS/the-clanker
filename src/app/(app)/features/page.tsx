@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useGetFeaturesQuery, useUpdateFeatureMutation } from "@/store/admin-api";
 
 type FeatureToggleConfig = {
@@ -86,10 +86,10 @@ export default function FeaturesPage(): React.ReactElement {
     };
   }, []);
 
-  async function onToggle(key: string, current: boolean): Promise<void> {
+  async function onSetFeature(key: string, enabled: boolean): Promise<void> {
     setPendingFeatureKey(key);
     try {
-      await updateFeature({ key, enabled: !current }).unwrap();
+      await updateFeature({ key, enabled }).unwrap();
     } finally {
       setPendingFeatureKey(null);
     }
@@ -148,25 +148,21 @@ export default function FeaturesPage(): React.ReactElement {
                       Last updated by {updatedByLabel} on {formatUpdatedAt(featureState?.updatedAt ?? null)}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant={enabled ? "outline" : "default"}
-                    disabled={isLoading || isSaving}
-                    onClick={() => {
-                      void onToggle(feature.key, enabled);
-                    }}
-                  >
+                  <div className="flex shrink-0 items-center gap-2">
                     {isSaving && pendingFeatureKey === feature.key ? (
-                      <>
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                        Saving…
-                      </>
-                    ) : enabled ? (
-                      "Turn off"
-                    ) : (
-                      "Turn on"
-                    )}
-                  </Button>
+                      <Loader2 className="text-muted-foreground size-4 animate-spin" aria-hidden="true" />
+                    ) : null}
+                    <Switch
+                      checked={enabled}
+                      disabled={isLoading || isSaving}
+                      aria-label={`${feature.label}: ${enabled ? "enabled" : "disabled"}`}
+                      onCheckedChange={(nextEnabled) => {
+                        if (nextEnabled !== enabled) {
+                          void onSetFeature(feature.key, nextEnabled);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               );
             })}

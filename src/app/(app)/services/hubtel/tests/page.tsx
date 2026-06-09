@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useHubtelTestSmsMutation,
   useHubtelTestSmsBatchMutation,
@@ -11,7 +11,6 @@ import {
   useHubtelSyncPendingMutation,
   useHubtelLabConfigQuery,
   useServiceOrderCreateMutation,
-  useServiceOrderPayDirectMutation,
   useServiceOrderStatusQuery,
   useLazyServiceOrderStatusQuery,
   useLazyServicePaymentStatusByCheckoutQuery,
@@ -39,10 +38,14 @@ import {
   extractHubtelStatusCheckResult,
   extractHubtelTransactionSnapshot,
   extractOrderCheckoutFields,
-  extractPayDirectResult,
   flattenApiData,
   formatAdminMutationError as failMsg,
+  isServiceOrderTerminal,
+  mergeHubtelStatusCheckIntoTransaction,
+  readServiceOrderMeter,
+  readServiceOrderStatus,
 } from "@/lib/admin-api-envelope";
+import { useHubtelPayDirectHandler } from "@/hooks/use-hubtel-pay-direct-handler";
 import { useHubtelTransactionPoll } from "@/hooks/use-hubtel-transaction-poll";
 
 type UtilityServiceKey =
@@ -75,6 +78,7 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [utilMeter, setUtilMeter] = useState("");
   const [utilEmail, setUtilEmail] = useState("");
   const [utilSessionId, setUtilSessionId] = useState("");
+  const [utilPayeePhone, setUtilPayeePhone] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
@@ -88,29 +92,52 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [sync, { isLoading: hubtelSyncing }] = useHubtelSyncPendingMutation();
   const { data: labConfig } = useHubtelLabConfigQuery();
   const [createOrder] = useServiceOrderCreateMutation();
-  const [payDirect, { isLoading: airtimeDirectPayBusy }] = useServiceOrderPayDirectMutation();
   const [airtimeCheckoutBusy, setAirtimeCheckoutBusy] = useState(false);
   const [dataBundleCheckoutBusy, setDataBundleCheckoutBusy] = useState(false);
   const [utilityCheckoutBusy, setUtilityCheckoutBusy] = useState(false);
   const [ecgCheckoutBusy, setEcgCheckoutBusy] = useState(false);
-  const anyCheckoutBusy =
-    airtimeCheckoutBusy ||
-    airtimeDirectPayBusy ||
-    dataBundleCheckoutBusy ||
-    utilityCheckoutBusy ||
-    ecgCheckoutBusy;
   const [getStatus, { isFetching: orderStatusFetching }] = useLazyServiceOrderStatusQuery();
   const [getPaymentStatus, { isFetching: paymentStatusFetching }] =
     useLazyServicePaymentStatusByCheckoutQuery();
+  const [trackedOrderStatus, setTrackedOrderStatus] = useState<string | null>(null);
+  const payDirectCallbacks = useMemo(
+    () => ({
+      setOrderUuid,
+      setCheckoutOpen,
+      setCheckoutUrl,
+      setLastCsTransaction,
+      setHubtelStatusLabel,
+      setTrackedOrderStatus,
+    }),
+    [],
+  );
+  const { payDirectBusy, runPayDirect } = useHubtelPayDirectHandler(payDirectCallbacks);
+  const anyCheckoutBusy =
+    airtimeCheckoutBusy ||
+    payDirectBusy ||
+    dataBundleCheckoutBusy ||
+    utilityCheckoutBusy ||
+    ecgCheckoutBusy;
 
   const { data: liveOrder, isFetching: orderLiveFetching } = useServiceOrderStatusQuery(
     { uuid: orderUuid ?? "" },
     {
       skip: !checkoutOpen || !orderUuid,
-      // NOTE: don't reference `liveOrder` here; it's in the same const declaration (TDZ).
-      pollingInterval: checkoutOpen && orderUuid ? 5000 : 0,
+      pollingInterval:
+        checkoutOpen && orderUuid && !isServiceOrderTerminal(trackedOrderStatus) ? 5000 : 0,
     },
   );
+
+  useEffect(() => {
+    setTrackedOrderStatus(null);
+  }, [orderUuid]);
+
+  useEffect(() => {
+    const nextStatus = readServiceOrderStatus(liveOrder);
+    if (nextStatus !== trackedOrderStatus) {
+      setTrackedOrderStatus(nextStatus);
+    }
+  }, [liveOrder, trackedOrderStatus]);
 
   const { polling: hubtelAutoPolling } = useHubtelTransactionPoll({
     transaction: lastCsTransaction,
@@ -131,9 +158,12 @@ export default function HubtelTestsPage(): React.ReactElement {
       const payload = await hubtelStatusCheck({ client_reference: clientReference }).unwrap();
       const result = extractHubtelStatusCheckResult(payload);
       setHubtelStatusLabel(result.hubtelStatusLabel);
-      if (result.transaction) {
-        setLastCsTransaction(result.transaction);
-      }
+      setLastCsTransaction((current) => {
+        if (!current?.client_reference) {
+          return result.transaction ?? current;
+        }
+        return mergeHubtelStatusCheckIntoTransaction(current, payload);
+      });
       toast.success(
         result.hubtelStatusLabel
           ? `Hubtel status: ${result.hubtelStatusLabel}`
@@ -154,18 +184,26 @@ export default function HubtelTestsPage(): React.ReactElement {
     if (prefetch && !airPayeePhone) {
       setAirPayeePhone(prefetch);
     }
-  }, [labConfig, airPayeePhone]);
+    if (prefetch && !utilPayeePhone) {
+      setUtilPayeePhone(prefetch);
+    }
+  }, [labConfig, airPayeePhone, utilPayeePhone]);
+
+  const liveOrderMeter = readServiceOrderMeter(liveOrder);
+
+  const liveOrderStatus = readServiceOrderStatus(liveOrder);
+  const orderPollingActive =
+    checkoutOpen && Boolean(orderUuid) && !isServiceOrderTerminal(liveOrderStatus);
 
   useEffect(() => {
-    if (!checkoutOpen || !liveOrder || typeof liveOrder !== "object" || !("status" in liveOrder)) {
+    if (!checkoutOpen || !liveOrderStatus) {
       return;
     }
-    const st = String((liveOrder as { status?: unknown }).status);
-    if (st === "delivered" && deliveredToastPrev.current !== "delivered") {
+    if (liveOrderStatus === "delivered" && deliveredToastPrev.current !== "delivered") {
       toast.success("Order status: delivered.");
     }
-    deliveredToastPrev.current = st;
-  }, [checkoutOpen, liveOrder]);
+    deliveredToastPrev.current = liveOrderStatus;
+  }, [checkoutOpen, liveOrderStatus]);
 
   async function startCheckout(
     body: Record<string, unknown>,
@@ -464,52 +502,25 @@ export default function HubtelTestsPage(): React.ReactElement {
                 !airAmt ||
                 !isValidHubtelGhanaMobile(airPayeePhone)
               }
-              aria-busy={airtimeDirectPayBusy}
-              onClick={async () => {
-                try {
-                  const payload = await payDirect({
+              aria-busy={payDirectBusy}
+              onClick={() => {
+                const recipient = toHubtelInternationalFormat(airDest);
+                void runPayDirect(
+                  {
                     product: "airtime",
                     network: airNet,
-                    recipient: toHubtelInternationalFormat(airDest),
+                    recipient,
                     delivery_amount: Number(airAmt),
                     charged_amount: Number(airAmt),
                     payer_phone: toHubtelInternationalFormat(airPayeePhone),
-                    description: `Airtime for ${toHubtelInternationalFormat(airDest)}`,
-                  }).unwrap();
-                  const directResult = extractPayDirectResult(payload);
-                  if (directResult.orderUuid) {
-                    setOrderUuid(directResult.orderUuid);
-                    setCheckoutOpen(true);
-                  }
-                  if (directResult.clientReference) {
-                    setLastCsTransaction({
-                      client_reference: directResult.clientReference,
-                      status: "pending_payment",
-                      response_code: directResult.hubtelResponseCode,
-                      recipient: toHubtelInternationalFormat(airDest),
-                    });
-                  }
-                  const toastMessage =
-                    directResult.message ??
-                    (directResult.pendingApproval || directResult.hubtelResponseCode === "0001"
-                      ? "MoMo prompt sent (0001 pending). Approve on your phone — airtime delivers after payment."
-                      : "MoMo prompt sent. Approve on the payer phone.");
-                  toast.success(toastMessage);
-                } catch (error) {
-                  const errorPayload =
-                    error && typeof error === "object" && "data" in error
-                      ? (error as { data: unknown }).data
-                      : error;
-                  const directResult = extractPayDirectResult(errorPayload);
-                  if (directResult.orderUuid) {
-                    setOrderUuid(directResult.orderUuid);
-                    setCheckoutOpen(true);
-                  }
-                  toast.error(failMsg(error));
-                }
+                    description: `Airtime for ${recipient}`,
+                  },
+                  recipient,
+                  "MoMo prompt sent (0001 pending). Approve on your phone — airtime delivers after payment.",
+                );
               }}
             >
-              {airtimeDirectPayBusy ? (
+              {payDirectBusy ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
                   Sending MoMo prompt…
@@ -518,21 +529,6 @@ export default function HubtelTestsPage(): React.ReactElement {
                 "3. Direct MoMo pay (push prompt) + deliver"
               )}
             </Button>
-          </div>
-          <div className="md:col-span-3">
-            <HubtelTestFollowup
-              transaction={lastCsTransaction}
-              statusChecking={hubtelStatusChecking}
-              autoPolling={hubtelAutoPolling}
-              hubtelStatusLabel={hubtelStatusLabel}
-              onCheckStatus={async () => {
-                const ref = lastCsTransaction?.client_reference;
-                if (!ref) {
-                  return;
-                }
-                await checkHubtelTransactionStatus(ref);
-              }}
-            />
           </div>
         </CardContent>
       </Card>
@@ -556,6 +552,8 @@ export default function HubtelTestsPage(): React.ReactElement {
             setDataBundleCheckoutBusy(false);
           }
         }}
+        onPayDirect={runPayDirect}
+        payDirectBusy={payDirectBusy}
       />
 
       <HubtelEcgPrepaidCard
@@ -572,6 +570,8 @@ export default function HubtelTestsPage(): React.ReactElement {
             setEcgCheckoutBusy(false);
           }
         }}
+        onPayDirect={runPayDirect}
+        payDirectBusy={payDirectBusy}
       />
 
       <Card>
@@ -661,6 +661,23 @@ export default function HubtelTestsPage(): React.ReactElement {
                 inputMode="decimal"
               />
             </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="util-payee-phone">Your phone (Direct MoMo payment)</Label>
+              <Input
+                id="util-payee-phone"
+                value={utilPayeePhone}
+                onChange={(e) => {
+                  setUtilPayeePhone(e.target.value);
+                }}
+                onBlur={(e) => {
+                  const normalized = toHubtelInternationalFormat(e.target.value);
+                  if (normalized && normalized !== e.target.value.trim()) {
+                    setUtilPayeePhone(normalized);
+                  }
+                }}
+                placeholder="MoMo number for payment prompt"
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -724,9 +741,60 @@ export default function HubtelTestsPage(): React.ReactElement {
                 "Checkout and pay"
               )}
             </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={anyCheckoutBusy || !isValidHubtelGhanaMobile(utilPayeePhone)}
+              aria-busy={payDirectBusy}
+              onClick={() => {
+                const body = buildUtilityPayDirectBody({
+                  utilService,
+                  utilRef,
+                  utilMobile,
+                  utilAmount,
+                  utilMeter,
+                  utilEmail,
+                  utilSessionId,
+                  payerPhone: utilPayeePhone,
+                });
+                if (!body) {
+                  return;
+                }
+                void runPayDirect(
+                  body.orderBody,
+                  body.recipient,
+                  "MoMo prompt sent (0001 pending). Approve on your phone — service delivers after payment.",
+                );
+              }}
+            >
+              {payDirectBusy ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  Sending MoMo prompt…
+                </>
+              ) : (
+                "Direct MoMo pay (push prompt)"
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {lastCsTransaction?.client_reference ? (
+        <HubtelTestFollowup
+          transaction={lastCsTransaction}
+          statusChecking={hubtelStatusChecking}
+          autoPolling={hubtelAutoPolling}
+          hubtelStatusLabel={hubtelStatusLabel}
+          onCheckStatus={async () => {
+            const ref = lastCsTransaction.client_reference;
+            if (!ref) {
+              return;
+            }
+            await checkHubtelTransactionStatus(ref);
+          }}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -775,14 +843,48 @@ export default function HubtelTestsPage(): React.ReactElement {
           </DialogHeader>
           {orderUuid && !checkoutUrl ? (
             <div className="space-y-3">
-              {liveOrder && typeof liveOrder === "object" && liveOrder !== null && "status" in liveOrder ? (
+              {hubtelStatusLabel ? (
+                <section className="border-border rounded-md border px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Hubtel payment: </span>
+                  <span className="font-medium">{hubtelStatusLabel}</span>
+                  {hubtelAutoPolling ? (
+                    <Loader2
+                      className="text-muted-foreground ml-2 inline size-3.5 animate-spin align-middle"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </section>
+              ) : null}
+              {liveOrderStatus ? (
                 <section
                   className="border-border rounded-md border px-3 py-2 text-sm"
                   aria-live="polite"
+                  aria-busy={orderLiveFetching && orderPollingActive}
+                >
+                  <span className="text-muted-foreground">
+                    {orderPollingActive ? "Order status (syncs every 5s): " : "Order status: "}
+                  </span>
+                  <span className="font-medium">{liveOrderStatus}</span>
+                  {orderLiveFetching && orderPollingActive ? (
+                    <Loader2
+                      className="text-muted-foreground ml-2 inline size-3.5 animate-spin align-middle"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </section>
+              ) : orderPollingActive ? (
+                <section
+                  className="border-border text-muted-foreground rounded-md border px-3 py-2 text-sm"
+                  aria-live="polite"
                   aria-busy={orderLiveFetching}
                 >
-                  <span className="text-muted-foreground">Order status (syncs every 5s): </span>
-                  <span className="font-medium">{String((liveOrder as { status?: unknown }).status)}</span>
+                  Checking order status…
+                </section>
+              ) : null}
+              {liveOrderMeter ? (
+                <section className="border-border rounded-md border px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Meter: </span>
+                  <span className="font-mono font-medium">{liveOrderMeter}</span>
                 </section>
               ) : null}
               <div className="flex flex-wrap gap-2">
@@ -795,6 +897,10 @@ export default function HubtelTestsPage(): React.ReactElement {
                     if (!orderUuid) return;
                     try {
                       const res = await getStatus({ uuid: orderUuid }).unwrap();
+                      const refreshed = readServiceOrderStatus(res);
+                      if (refreshed) {
+                        setTrackedOrderStatus(refreshed);
+                      }
                       toast.success(formatOrderStatusToast(res));
                     } catch (error) {
                       toast.error(failMsg(error));
@@ -805,27 +911,42 @@ export default function HubtelTestsPage(): React.ReactElement {
                 </Button>
               </div>
               <p className="text-muted-foreground text-xs">
-                Direct MoMo: approve the prompt on the payer phone. Service delivers after Hubtel confirms payment.
+                Direct MoMo: approve the prompt on the payer phone. Polling stops once Hubtel reports
+                payment success or the order is delivered.
               </p>
             </div>
           ) : checkoutUrl ? (
             <div className="space-y-3">
-              {liveOrder && typeof liveOrder === "object" && liveOrder !== null && "status" in liveOrder ? (
+              {liveOrderStatus ? (
                 <section
                   className="border-border rounded-md border px-3 py-2 text-sm"
                   aria-live="polite"
-                  aria-busy={orderLiveFetching}
+                  aria-busy={orderLiveFetching && orderPollingActive}
                 >
-                  <span className="text-muted-foreground">Order status (syncs every 5s): </span>
-                  <span className="text-foreground font-medium">
-                    {String((liveOrder as { status?: unknown }).status)}
+                  <span className="text-muted-foreground">
+                    {orderPollingActive ? "Order status (syncs every 5s): " : "Order status: "}
                   </span>
-                  {orderLiveFetching ? (
+                  <span className="text-foreground font-medium">{liveOrderStatus}</span>
+                  {orderLiveFetching && orderPollingActive ? (
                     <Loader2
                       className="text-muted-foreground ml-2 inline size-3.5 animate-spin align-middle"
                       aria-hidden="true"
                     />
                   ) : null}
+                </section>
+              ) : orderPollingActive ? (
+                <section
+                  className="border-border text-muted-foreground rounded-md border px-3 py-2 text-sm"
+                  aria-live="polite"
+                  aria-busy={orderLiveFetching}
+                >
+                  Checking order status…
+                </section>
+              ) : null}
+              {liveOrderMeter ? (
+                <section className="border-border rounded-md border px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Meter: </span>
+                  <span className="font-mono font-medium">{liveOrderMeter}</span>
                 </section>
               ) : null}
               <div className="bg-muted overflow-hidden rounded-md border">
@@ -854,6 +975,10 @@ export default function HubtelTestsPage(): React.ReactElement {
                     if (!orderUuid) return;
                     try {
                       const res = await getStatus({ uuid: orderUuid }).unwrap();
+                      const refreshed = readServiceOrderStatus(res);
+                      if (refreshed) {
+                        setTrackedOrderStatus(refreshed);
+                      }
                       toast.success(formatOrderStatusToast(res));
                     } catch (error) {
                       toast.error(failMsg(error));
@@ -959,6 +1084,76 @@ function buildUtilityQueryPayload(
     return { service, destination, mobile: mobile.trim() || destination };
   }
   return { service, destination };
+}
+
+function buildUtilityPayDirectBody(args: {
+  utilService: UtilityServiceKey;
+  utilRef: string;
+  utilMobile: string;
+  utilAmount: string;
+  utilMeter: string;
+  utilEmail: string;
+  utilSessionId: string;
+  payerPhone: string;
+}): { orderBody: Record<string, unknown>; recipient: string } | null {
+  const {
+    utilService,
+    utilRef,
+    utilMobile,
+    utilAmount,
+    utilMeter,
+    utilEmail,
+    utilSessionId,
+    payerPhone,
+  } = args;
+
+  const ref = utilRef.trim();
+  const amt = Number(utilAmount);
+  const payer = toHubtelInternationalFormat(payerPhone);
+
+  if (!ref || !Number.isFinite(amt) || amt <= 0) {
+    toast.error("Enter reference and a valid amount.");
+    return null;
+  }
+
+  if (!isValidHubtelGhanaMobile(payer)) {
+    toast.error("Enter a valid payer mobile for Direct MoMo.");
+    return null;
+  }
+
+  if (utilService === "ecg" && !utilMeter.trim()) {
+    toast.error("ECG needs a meter number for payment.");
+    return null;
+  }
+
+  if (utilService === "ghana_water" && (!utilEmail.trim() || !utilSessionId.trim())) {
+    toast.error("Ghana Water needs email and session id from the query step.");
+    return null;
+  }
+
+  const metadata: Record<string, unknown> = {};
+  if (utilService === "ecg") {
+    metadata.customer_phone = ref;
+    metadata.meter_number = utilMeter.trim();
+  } else if (utilService === "ghana_water") {
+    metadata.customer_phone = utilMobile.trim() || ref;
+    metadata.meter_number = utilMeter.trim() || ref;
+    metadata.email = utilEmail.trim();
+    metadata.session_id = utilSessionId.trim();
+  }
+
+  return {
+    recipient: ref,
+    orderBody: {
+      product: utilService,
+      recipient: ref,
+      delivery_amount: amt,
+      charged_amount: amt,
+      payer_phone: payer,
+      description: `${utilService} for ${ref}`,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    },
+  };
 }
 
 async function submitUtilityOrTvCheckout(args: {

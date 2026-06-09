@@ -102,13 +102,48 @@ function formatValidationIssues(issues: unknown): string {
   return "Validation failed. Check your inputs.";
 }
 
-export function extractPayDirectResult(payload: unknown): {
+export type PayDirectResult = {
   orderUuid: string | null;
   clientReference: string | null;
+  orderStatus: string | null;
   pendingApproval: boolean;
   message: string | null;
   hubtelResponseCode: string | null;
-} {
+  hubtelTransactionId: string | null;
+  paymentSucceeded: boolean;
+  orderComplete: boolean;
+  needsPaymentPolling: boolean;
+  needsOrderPolling: boolean;
+  meterNumber: string | null;
+};
+
+function hubtelMessageIndicatesSuccess(message: string | null | undefined): boolean {
+  if (!message?.trim()) {
+    return false;
+  }
+  const lower = message.trim().toLowerCase();
+  return (
+    lower.includes("successful") ||
+    lower.includes("completed") ||
+    lower.includes("delivered") ||
+    lower === "paid"
+  );
+}
+
+function readOrderMetadataField(payload: Record<string, unknown>, key: string): string | null {
+  const metadata = payload.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const value = (metadata as Record<string, unknown>)[key];
+  if (value == null) {
+    return null;
+  }
+  const text = String(value).trim();
+  return text || null;
+}
+
+export function extractPayDirectResult(payload: unknown): PayDirectResult {
   let envelopeMessage: string | null = null;
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
     const topLevel = payload as Record<string, unknown>;
@@ -117,15 +152,24 @@ export function extractPayDirectResult(payload: unknown): {
     }
   }
 
+  const empty: PayDirectResult = {
+    orderUuid: null,
+    clientReference: null,
+    orderStatus: null,
+    pendingApproval: false,
+    message: envelopeMessage,
+    hubtelResponseCode: null,
+    hubtelTransactionId: null,
+    paymentSucceeded: false,
+    orderComplete: false,
+    needsPaymentPolling: false,
+    needsOrderPolling: false,
+    meterNumber: null,
+  };
+
   const flat = flattenApiData(payload);
   if (!flat) {
-    return {
-      orderUuid: null,
-      clientReference: null,
-      pendingApproval: false,
-      message: envelopeMessage,
-      hubtelResponseCode: null,
-    };
+    return empty;
   }
 
   const hubtelBlock = flat.hubtel;
@@ -135,19 +179,62 @@ export function extractPayDirectResult(payload: unknown): {
       : null;
 
   const nestedMessage = typeof flat.message === "string" ? flat.message : null;
+  const hubtelMessage =
+    typeof hubtelRecord?.message === "string" ? hubtelRecord.message : null;
+  const message = nestedMessage ?? hubtelMessage ?? envelopeMessage;
+
+  const orderUuid = typeof flat.order_uuid === "string" ? flat.order_uuid : null;
+  const clientReference =
+    typeof flat.client_reference === "string" ? flat.client_reference : null;
+  const orderStatus = typeof flat.status === "string" ? flat.status : null;
+  const pendingApproval =
+    flat.pending_customer_approval === true || hubtelRecord?.pending === true;
+  const hubtelResponseCode =
+    typeof hubtelRecord?.response_code === "string"
+      ? hubtelRecord.response_code
+      : typeof flat.hubtel_response_code === "string"
+        ? flat.hubtel_response_code
+        : null;
+  const hubtelTransactionId =
+    typeof flat.hubtel_transaction_id === "string" ? flat.hubtel_transaction_id : null;
+
+  const paymentSucceeded =
+    !pendingApproval &&
+    (hubtelResponseCode === "0000" || hubtelMessageIndicatesSuccess(message));
+  const orderComplete =
+    isServiceOrderTerminal(orderStatus) ||
+    orderStatus === "paid" ||
+    orderStatus === "delivering";
+  const needsPaymentPolling = Boolean(clientReference) && !paymentSucceeded;
+  const needsOrderPolling = Boolean(orderUuid) && !isServiceOrderTerminal(orderStatus);
+
+  const meterNumber =
+    readOrderMetadataField(flat, "meter_number") ?? readOrderMetadataField(flat, "meter");
 
   return {
-    orderUuid: typeof flat.order_uuid === "string" ? flat.order_uuid : null,
-    clientReference: typeof flat.client_reference === "string" ? flat.client_reference : null,
-    pendingApproval: flat.pending_customer_approval === true,
-    message: nestedMessage ?? envelopeMessage,
-    hubtelResponseCode:
-      typeof hubtelRecord?.response_code === "string"
-        ? hubtelRecord.response_code
-        : typeof flat.hubtel_response_code === "string"
-          ? flat.hubtel_response_code
-          : null,
+    orderUuid,
+    clientReference,
+    orderStatus,
+    pendingApproval,
+    message,
+    hubtelResponseCode,
+    hubtelTransactionId,
+    paymentSucceeded,
+    orderComplete,
+    needsPaymentPolling,
+    needsOrderPolling,
+    meterNumber,
   };
+}
+
+export function readServiceOrderMeter(order: unknown): string | null {
+  if (!order || typeof order !== "object" || Array.isArray(order)) {
+    return null;
+  }
+  const record = order as Record<string, unknown>;
+  return (
+    readOrderMetadataField(record, "meter_number") ?? readOrderMetadataField(record, "meter")
+  );
 }
 
 export type HubtelTransactionSnapshot = {
@@ -220,6 +307,113 @@ export function extractHubtelStatusCheckResult(payload: unknown): {
     hubtelStatusLabel: hubtelStatusLabel || null,
     hubtelMessage,
   };
+}
+
+export type HubtelTxnPaymentState = "paid" | "failed" | "pending" | "unknown";
+
+/** Mirrors core `resolveHubtelTxnPaymentState` for Receive Money / checkout status checks. */
+export function resolveHubtelTxnPaymentStateFromCheck(payload: unknown): HubtelTxnPaymentState {
+  const flat = flattenApiData(payload);
+  const hubtelBlock = flat?.hubtel;
+  if (!hubtelBlock || typeof hubtelBlock !== "object" || Array.isArray(hubtelBlock)) {
+    return "unknown";
+  }
+  const statusPayload = hubtelBlock as Record<string, unknown>;
+  const responseCode = String(
+    statusPayload.responseCode ?? statusPayload.response_code ?? "",
+  ).trim();
+
+  const data = (statusPayload.data ?? statusPayload.Data) as
+    | Record<string, unknown>
+    | undefined;
+  const hubtelStatus = data
+    ? String(data.status ?? data.Status ?? "")
+        .trim()
+        .toLowerCase()
+    : "";
+
+  if (hubtelStatus === "paid" || hubtelStatus === "success") {
+    return "paid";
+  }
+  if (hubtelStatus === "failed" || hubtelStatus === "refunded" || hubtelStatus === "declined") {
+    return "failed";
+  }
+  if (
+    hubtelStatus === "unpaid" ||
+    hubtelStatus === "pending" ||
+    hubtelStatus === "unconfirmed" ||
+    responseCode === "0001"
+  ) {
+    return "pending";
+  }
+  if (responseCode === "2001") {
+    return "failed";
+  }
+  return "unknown";
+}
+
+export function isHubtelPaymentCheckTerminal(payload: unknown): boolean {
+  const state = resolveHubtelTxnPaymentStateFromCheck(payload);
+  return state === "paid" || state === "failed";
+}
+
+export function mergeHubtelStatusCheckIntoTransaction(
+  current: HubtelTransactionSnapshot,
+  payload: unknown,
+): HubtelTransactionSnapshot {
+  const result = extractHubtelStatusCheckResult(payload);
+  if (result.transaction) {
+    return { ...current, ...result.transaction };
+  }
+
+  const flat = flattenApiData(payload);
+  const hubtelBlock = flat?.hubtel;
+  const hubtelRecord =
+    hubtelBlock && typeof hubtelBlock === "object" && !Array.isArray(hubtelBlock)
+      ? (hubtelBlock as Record<string, unknown>)
+      : null;
+  const nestedData = hubtelRecord?.data;
+  const nestedRecord =
+    nestedData && typeof nestedData === "object" && !Array.isArray(nestedData)
+      ? (nestedData as Record<string, unknown>)
+      : null;
+
+  const paymentState = resolveHubtelTxnPaymentStateFromCheck(payload);
+  const responseCode =
+    String(hubtelRecord?.responseCode ?? hubtelRecord?.response_code ?? "").trim() || null;
+  const externalId = nestedRecord?.transactionId ?? nestedRecord?.externalTransactionId;
+
+  let status = current.status;
+  if (paymentState === "paid") {
+    status = "success";
+  } else if (paymentState === "failed") {
+    status = "failed";
+  }
+
+  return {
+    ...current,
+    status,
+    response_code: responseCode ?? current.response_code,
+    external_transaction_id:
+      externalId != null ? String(externalId) : current.external_transaction_id,
+  };
+}
+
+const SERVICE_ORDER_TERMINAL_STATUSES = new Set(["delivered", "failed", "refunded"]);
+
+export function readServiceOrderStatus(order: unknown): string | null {
+  if (!order || typeof order !== "object" || Array.isArray(order)) {
+    return null;
+  }
+  const status = (order as Record<string, unknown>).status;
+  return typeof status === "string" && status.trim() ? status : null;
+}
+
+export function isServiceOrderTerminal(status: string | null | undefined): boolean {
+  if (!status) {
+    return false;
+  }
+  return SERVICE_ORDER_TERMINAL_STATUSES.has(status.toLowerCase());
 }
 
 export function extractHubtelCommissionMeta(

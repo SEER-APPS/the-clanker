@@ -35,9 +35,15 @@ type HubtelDataBundlesCardProps = {
   onPrefetchDestChange: (value: string) => void;
   checkoutBusy: boolean;
   anyCheckoutBusy: boolean;
+  payDirectBusy?: boolean;
   onCheckout: (
     body: Record<string, unknown>,
   ) => Promise<{ recipientName: string | null } | void>;
+  onPayDirect?: (
+    body: Record<string, unknown>,
+    recipient: string,
+    pendingHint: string,
+  ) => Promise<HubtelTestTransactionSnapshot | null>;
   onCommissionTransaction?: (payload: unknown) => HubtelTestTransactionSnapshot | null;
 };
 
@@ -48,7 +54,9 @@ export function HubtelDataBundlesCard({
   onPrefetchDestChange,
   checkoutBusy,
   anyCheckoutBusy,
+  payDirectBusy = false,
   onCheckout,
+  onPayDirect,
   onCommissionTransaction,
 }: HubtelDataBundlesCardProps): React.ReactElement {
   const { data: labConfig } = useHubtelLabConfigQuery();
@@ -105,7 +113,7 @@ export function HubtelDataBundlesCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [network]);
 
-  const actionsBusy = directSending || checkoutBusy;
+  const actionsBusy = directSending || checkoutBusy || payDirectBusy;
 
   return (
     <Card>
@@ -248,11 +256,10 @@ export function HubtelDataBundlesCard({
                 placeholder="Number that receives payment prompt"
               />
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1"
                 disabled={actionsBusy || anyCheckoutBusy || !recipient.trim()}
                 onClick={async () => {
                   const destination = normalizePhoneInput(recipient);
@@ -290,12 +297,57 @@ export function HubtelDataBundlesCard({
                     Sending…
                   </>
                 ) : (
-                  "Send bundle direct (CS)"
+                  "1. Send bundle direct (Commission Services)"
                 )}
               </Button>
               <Button
                 type="button"
-                className="flex-1"
+                variant="secondary"
+                disabled={
+                  actionsBusy ||
+                  anyCheckoutBusy ||
+                  !recipient.trim() ||
+                  !isValidHubtelGhanaMobile(payeePhone)
+                }
+                onClick={async () => {
+                  const destination = normalizePhoneInput(recipient);
+                  if (!isValidHubtelGhanaMobile(destination)) {
+                    toast.error("Enter a valid Ghana mobile for the recipient.");
+                    return;
+                  }
+                  if (!onPayDirect) {
+                    return;
+                  }
+                  setRecipient(destination);
+                  const payerPhone = normalizePhoneInput(payeePhone);
+                  await onPayDirect(
+                    {
+                      product: "data",
+                      network,
+                      service_type: `data_${network}`,
+                      recipient: destination,
+                      delivery_amount: selectedBundle.amountGhs,
+                      charged_amount: selectedBundle.amountGhs,
+                      data_bundle_id: selectedBundle.bundleId,
+                      payer_phone: payerPhone,
+                      description: `Data bundle for ${destination}`,
+                    },
+                    destination,
+                    "MoMo prompt sent (0001 pending). Approve on your phone — bundle delivers after payment.",
+                  );
+                }}
+              >
+                {payDirectBusy ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                    Sending MoMo prompt…
+                  </>
+                ) : (
+                  "2. Direct MoMo pay (push prompt) + deliver"
+                )}
+              </Button>
+              <Button
+                type="button"
                 disabled={actionsBusy || anyCheckoutBusy || !recipient.trim()}
                 onClick={async () => {
                   const destination = normalizePhoneInput(recipient);
@@ -329,7 +381,7 @@ export function HubtelDataBundlesCard({
                     Processing…
                   </>
                 ) : (
-                  "Checkout & run data bundle"
+                  "3. Online checkout (browser) + deliver"
                 )}
               </Button>
             </div>

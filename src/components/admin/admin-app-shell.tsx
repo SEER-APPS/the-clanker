@@ -25,6 +25,7 @@ import {
   Settings,
   ShieldAlert,
   Ticket,
+  ToggleLeft,
   Users,
   Wallet,
   Loader2,
@@ -63,7 +64,7 @@ const NAV_ICON_BY_HREF: Record<string, React.ComponentType<{ className?: string 
   "/balances": Wallet,
 
   "/settings": Settings,
-  "/features": Settings,
+  "/features": ToggleLeft,
   "/services/tests": Activity,
   "/services/analytics": BarChart3,
 

@@ -103,13 +103,14 @@ export function HubtelTestFollowup({
       <p className="text-muted-foreground text-xs">
         {pending ? (
           <>
-            Response code <strong>0001</strong> means pending. This panel auto-polls the stored
-            transaction until Hubtel callback updates it (or you check manually).
+            Response code <strong>0001</strong> means pending approval on the payer phone. Auto-polling
+            stops once Hubtel reports <strong>Paid</strong> or a success message — no extra checks after
+            that.
           </>
         ) : (
           <>
-            Final status is stored in <code className="text-xs">hubtel_transactions</code> and
-            updated via <code className="text-xs">HUBTEL_CALLBACK_URL</code>.
+            Payment complete. Commission Services rows also update via{" "}
+            <code className="text-xs">HUBTEL_CALLBACK_URL</code>; Direct MoMo uses Receive Money status.
           </>
         )}
       </p>
