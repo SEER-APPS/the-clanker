@@ -10,6 +10,16 @@ const SKIP_REQUEST_HEADERS = new Set([
   "keep-alive",
 ]);
 
+/** Upstream may gzip; Node fetch decompresses the body but can leave Content-Encoding set. */
+const SKIP_RESPONSE_HEADERS = new Set([
+  "connection",
+  "content-encoding",
+  "content-length",
+  "keep-alive",
+  "transfer-encoding",
+  "upgrade",
+]);
+
 export async function proxyToLaravel(
   req: NextRequest,
   pathSegments: string[],
@@ -38,6 +48,7 @@ export async function proxyToLaravel(
     }
   });
   headers.set("Accept", "application/json");
+  headers.set("Accept-Encoding", "identity");
   const mobileKey = process.env.MOBILE_API_KEY;
   if (mobileKey) {
     headers.set("X-Seer-Client-Key", mobileKey);
@@ -63,5 +74,35 @@ export async function proxyToLaravel(
     init.duplex = "half";
   }
 
-  return fetch(url.toString(), init);
+  let upstream: Response;
+  try {
+    upstream = await fetch(url.toString(), init);
+  } catch (error) {
+    console.error("[admin/proxy] upstream fetch failed", {
+      target: url.toString(),
+      error,
+    });
+    return Response.json(
+      {
+        success: false,
+        message:
+          "Could not reach the API. Verify SEER_BACKEND_URL on the admin host points at your seer-proxy URL.",
+      },
+      { status: 503 },
+    );
+  }
+
+  const body = await upstream.arrayBuffer();
+  const responseHeaders = new Headers();
+  upstream.headers.forEach((value, key) => {
+    if (!SKIP_RESPONSE_HEADERS.has(key.toLowerCase())) {
+      responseHeaders.set(key, value);
+    }
+  });
+
+  return new Response(body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: responseHeaders,
+  });
 }
