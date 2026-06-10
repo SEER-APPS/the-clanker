@@ -44,6 +44,7 @@ import {
   mergeHubtelStatusCheckIntoTransaction,
   readServiceOrderMeter,
   readServiceOrderStatus,
+  readHubtelPaymentStatusFromOrder,
 } from "@/lib/admin-api-envelope";
 import { useHubtelPayDirectHandler } from "@/hooks/use-hubtel-pay-direct-handler";
 import { useHubtelTransactionPoll } from "@/hooks/use-hubtel-transaction-poll";
@@ -138,6 +139,25 @@ export default function HubtelTestsPage(): React.ReactElement {
       setTrackedOrderStatus(nextStatus);
     }
   }, [liveOrder, trackedOrderStatus]);
+
+  useEffect(() => {
+    const reconciledPayment = readHubtelPaymentStatusFromOrder(liveOrder);
+    if (!reconciledPayment) {
+      return;
+    }
+    setHubtelStatusLabel(reconciledPayment);
+    setLastCsTransaction((current) => {
+      if (!current?.client_reference) {
+        return current;
+      }
+      const paid = reconciledPayment.trim().toLowerCase() === "paid";
+      return {
+        ...current,
+        hubtel_payment_status: reconciledPayment,
+        status: paid ? "success" : current.status,
+      };
+    });
+  }, [liveOrder]);
 
   const { polling: hubtelAutoPolling } = useHubtelTransactionPoll({
     transaction: lastCsTransaction,
@@ -911,8 +931,9 @@ export default function HubtelTestsPage(): React.ReactElement {
                 </Button>
               </div>
               <p className="text-muted-foreground text-xs">
-                Direct MoMo: approve the prompt on the payer phone. Polling stops once Hubtel reports
-                payment success or the order is delivered.
+                Direct MoMo: approve the prompt on the payer phone. Payment is polled until Hubtel
+                reports <strong>Paid</strong>; the order only moves to delivered after payment is
+                confirmed on the server.
               </p>
             </div>
           ) : checkoutUrl ? (

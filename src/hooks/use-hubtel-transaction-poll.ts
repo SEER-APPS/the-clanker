@@ -77,7 +77,8 @@ export function useHubtelTransactionPoll({
         }
 
         const paymentTerminal = isHubtelPaymentCheckTerminal(payload);
-        if (!isHubtelTransactionPending(snapshot) || paymentTerminal) {
+        const paymentPending = isHubtelTransactionPending(snapshot);
+        if (!paymentPending || paymentTerminal) {
           const terminalKey = `${snapshot.client_reference}:${snapshot.status}:${result.hubtelStatusLabel ?? ""}`;
           if (showTerminalToast && terminalToastShownRef.current !== terminalKey) {
             terminalToastShownRef.current = terminalKey;
@@ -136,6 +137,7 @@ export function useHubtelTransactionPoll({
     transaction?.client_reference,
     transaction?.status,
     transaction?.response_code,
+    transaction?.hubtel_payment_status,
     hubtelStatusCheck,
     onTransactionUpdate,
     onStatusLabelUpdate,

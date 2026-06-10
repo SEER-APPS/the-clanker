@@ -198,9 +198,15 @@ export function extractPayDirectResult(payload: unknown): PayDirectResult {
   const hubtelTransactionId =
     typeof flat.hubtel_transaction_id === "string" ? flat.hubtel_transaction_id : null;
 
+  const normalizedOrderStatus = orderStatus?.toLowerCase() ?? "";
   const paymentSucceeded =
-    !pendingApproval &&
-    (hubtelResponseCode === "0000" || hubtelMessageIndicatesSuccess(message));
+    normalizedOrderStatus === "paid" ||
+    normalizedOrderStatus === "delivering" ||
+    isServiceOrderTerminal(orderStatus) ||
+    (!pendingApproval &&
+      isReceiveMoneyClientReference(clientReference) === false &&
+      hubtelResponseCode === "0000" &&
+      hubtelMessageIndicatesSuccess(message));
   const orderComplete =
     isServiceOrderTerminal(orderStatus) ||
     orderStatus === "paid" ||
@@ -227,6 +233,13 @@ export function extractPayDirectResult(payload: unknown): PayDirectResult {
   };
 }
 
+export function readHubtelPaymentStatusFromOrder(order: unknown): string | null {
+  return readOrderMetadataField(
+    order && typeof order === "object" && !Array.isArray(order) ? (order as Record<string, unknown>) : {},
+    "hubtel_status_check",
+  );
+}
+
 export function readServiceOrderMeter(order: unknown): string | null {
   if (!order || typeof order !== "object" || Array.isArray(order)) {
     return null;
@@ -243,9 +256,34 @@ export type HubtelTransactionSnapshot = {
   client_reference?: string | null;
   status?: string | null;
   response_code?: string | null;
+  /** Hubtel txn-status `data.status` (Paid / Unpaid) — not the query ResponseCode. */
+  hubtel_payment_status?: string | null;
   external_transaction_id?: string | null;
   recipient?: string | null;
 };
+
+export function isReceiveMoneyClientReference(
+  clientReference: string | null | undefined,
+): boolean {
+  return Boolean(clientReference?.startsWith("rm-"));
+}
+
+function normalizeHubtelPaymentStatus(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+export function isHubtelPaymentStatusTerminal(
+  hubtelPaymentStatus: string | null | undefined,
+): boolean {
+  const normalized = normalizeHubtelPaymentStatus(hubtelPaymentStatus);
+  return (
+    normalized === "paid" ||
+    normalized === "success" ||
+    normalized === "failed" ||
+    normalized === "declined" ||
+    normalized === "refunded"
+  );
+}
 
 export function extractHubtelTransactionSnapshot(
   payload: unknown,
@@ -264,13 +302,34 @@ export function isHubtelTransactionPending(
   if (!transaction?.client_reference) {
     return false;
   }
+
+  const paymentStatus = normalizeHubtelPaymentStatus(transaction.hubtel_payment_status);
+  if (paymentStatus === "paid" || paymentStatus === "success") {
+    return false;
+  }
+  if (paymentStatus === "failed" || paymentStatus === "declined" || paymentStatus === "refunded") {
+    return false;
+  }
+
   const status = transaction.status?.toLowerCase() ?? "";
   if (status === "success" || status === "failed" || status === "delivered") {
     return false;
   }
-  if (transaction.response_code === "0000") {
+
+  if (isReceiveMoneyClientReference(transaction.client_reference)) {
+    return (
+      !paymentStatus ||
+      paymentStatus === "unpaid" ||
+      paymentStatus === "pending" ||
+      paymentStatus === "unconfirmed" ||
+      status === "pending_payment"
+    );
+  }
+
+  if (transaction.response_code === "0000" && status !== "pending" && status !== "pending_payment") {
     return false;
   }
+
   return (
     transaction.response_code === "0001" ||
     status === "pending" ||
@@ -296,9 +355,7 @@ export function extractHubtelStatusCheckResult(payload: unknown): {
     !Array.isArray(nestedHubtelData)
       ? (nestedHubtelData as Record<string, unknown>).status
       : null;
-  const hubtelStatusLabel = String(
-    nestedStatus ?? hubtelRecord?.status ?? hubtelRecord?.response_code ?? "",
-  ).trim();
+  const hubtelStatusLabel = String(nestedStatus ?? hubtelRecord?.status ?? "").trim() || null;
   const hubtelMessage =
     typeof hubtelRecord?.message === "string" ? hubtelRecord.message : null;
 
@@ -379,9 +436,14 @@ export function mergeHubtelStatusCheckIntoTransaction(
       : null;
 
   const paymentState = resolveHubtelTxnPaymentStateFromCheck(payload);
-  const responseCode =
+  const queryResponseCode =
     String(hubtelRecord?.responseCode ?? hubtelRecord?.response_code ?? "").trim() || null;
   const externalId = nestedRecord?.transactionId ?? nestedRecord?.externalTransactionId;
+  const rawPaymentStatus = nestedRecord?.status ?? nestedRecord?.Status;
+  const hubtelPaymentStatus =
+    rawPaymentStatus != null
+      ? String(rawPaymentStatus).trim()
+      : (current.hubtel_payment_status ?? null);
 
   let status = current.status;
   if (paymentState === "paid") {
@@ -390,10 +452,18 @@ export function mergeHubtelStatusCheckIntoTransaction(
     status = "failed";
   }
 
+  let responseCode = current.response_code;
+  if (paymentState === "paid") {
+    responseCode = "0000";
+  } else if (paymentState === "failed") {
+    responseCode = queryResponseCode ?? current.response_code;
+  }
+
   return {
     ...current,
     status,
-    response_code: responseCode ?? current.response_code,
+    hubtel_payment_status: hubtelPaymentStatus,
+    response_code: responseCode,
     external_transaction_id:
       externalId != null ? String(externalId) : current.external_transaction_id,
   };

@@ -12,6 +12,7 @@ export type HubtelTestTransactionSnapshot = {
   client_reference?: string | null;
   status?: string | null;
   response_code?: string | null;
+  hubtel_payment_status?: string | null;
   external_transaction_id?: string | null;
   recipient?: string | null;
 };
@@ -55,7 +56,11 @@ export function HubtelTestFollowup({
         {transaction.response_code ? (
           <span>Hubtel code: {transaction.response_code}</span>
         ) : null}
-        {hubtelStatusLabel ? <span>Status: {hubtelStatusLabel}</span> : null}
+        {hubtelStatusLabel ? <span>Payment: {hubtelStatusLabel}</span> : null}
+        {transaction.hubtel_payment_status &&
+        transaction.hubtel_payment_status !== hubtelStatusLabel ? (
+          <span>Txn status: {transaction.hubtel_payment_status}</span>
+        ) : null}
         {autoPolling ? (
           <span className="text-primary inline-flex items-center gap-1">
             <Loader2 className="size-3 animate-spin" aria-hidden="true" />

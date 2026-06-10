@@ -41,6 +41,7 @@ export function useHubtelPayDirectHandler(
               client_reference: result.clientReference,
               status: result.paymentSucceeded ? "success" : "pending_payment",
               response_code: result.hubtelResponseCode,
+              hubtel_payment_status: result.paymentSucceeded ? "Paid" : "Unpaid",
               recipient,
               external_transaction_id: result.hubtelTransactionId,
             }
