@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { LiveClock } from "@/components/admin/live-clock";
 import { AdminBreadcrumb } from "@/components/admin/admin-breadcrumb";
+import { AdminSessionGuard } from "@/components/admin/admin-session-guard";
 import {
   Activity,
   BarChart3,
@@ -161,6 +162,7 @@ export function AdminAppShell({
         } as React.CSSProperties
       }
     >
+      <AdminSessionGuard />
       <Sidebar>
         <SidebarHeader className="border-b border-sidebar-border px-[18px] py-4">
           <div className="flex items-center gap-2.5">

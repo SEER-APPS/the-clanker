@@ -131,12 +131,12 @@ export default function SettingsPage(): React.ReactElement {
   async function signOutEverywhere(): Promise<void> {
     try {
       setSessionBusy(true);
-      const res = await fetch("/api/admin/auth/logout", { method: "POST" });
+      const res = await fetch("/api/admin/auth/logout-all", { method: "POST" });
       if (!res.ok) {
         toast.error("Sign out failed.");
         return;
       }
-      toast.success("Signed out.");
+      toast.success("Signed out on all devices.");
       router.replace("/login");
     } catch {
       toast.error("Sign out failed.");

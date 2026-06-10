@@ -36,7 +36,10 @@ export const adminApi = createApi({
     "Features",
   ],
   endpoints: (builder) => ({
-    getMe: builder.query<{ admin: AdminMe }, void>({
+    getMe: builder.query<
+      { admin: AdminMe; session_expires_at?: string | null },
+      void
+    >({
       query: () => "/auth/me",
       providesTags: ["Me"],
     }),

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_TOKEN_COOKIE } from "@/lib/admin-cookie";
+import { ADMIN_SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/admin-session-config";
 import { loginFailureMessageForClient } from "@/lib/login-failure-message";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: ADMIN_SESSION_COOKIE_MAX_AGE_SECONDS,
     });
   } catch (err) {
     console.error("[admin/auth/login] failed to set session cookie", err);
