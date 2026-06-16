@@ -29,6 +29,13 @@ const FEATURE_TOGGLES: FeatureToggleConfig[] = [
     category: "Payments",
   },
   {
+    key: "app_update_prompt_enabled",
+    label: "App Update Prompt",
+    description:
+      "When enabled, mobile apps below the configured minimum version show an in-app update prompt.",
+    category: "Authentication",
+  },
+  {
     key: "service_prepaid_enabled",
     label: "ECG Prepaid",
     description: "Show ECG prepaid service in mobile apps.",

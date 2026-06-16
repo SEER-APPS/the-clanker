@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import {
   useGetNotificationsQuery,
+  useGetUsersQuery,
   useSendAdminNotificationMutation,
 } from "@/store/admin-api";
 import type { Paginated } from "@/types/admin";
@@ -52,8 +53,8 @@ export default function NotificationsPage(): React.ReactElement {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeTemplate, setComposeTemplate] = useState<
-    "admin_test" | "chat_open" | "chat_location_preview" | "status_view"
-  >("admin_test");
+    "admin_announcement" | "admin_test" | "chat_open" | "chat_location_preview" | "status_view"
+  >("admin_announcement");
   const [composeTitle, setComposeTitle] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeConversation, setComposeConversation] = useState("");
@@ -61,6 +62,8 @@ export default function NotificationsPage(): React.ReactElement {
   const [composeLat, setComposeLat] = useState("");
   const [composeLng, setComposeLng] = useState("");
   const [composeStatusOwner, setComposeStatusOwner] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [appliedUserSearch, setAppliedUserSearch] = useState("");
 
   const { data, isLoading, isError } = useGetNotificationsQuery({
     page,
@@ -69,6 +72,10 @@ export default function NotificationsPage(): React.ReactElement {
     search: applied.search || undefined,
   });
   const [sendPush, { isLoading: sendBusy }] = useSendAdminNotificationMutation();
+  const { data: userSearchData } = useGetUsersQuery(
+    { page: 1, search: appliedUserSearch || undefined },
+    { skip: !composeOpen || appliedUserSearch.trim().length < 2 },
+  );
 
   const list = data as
     | (Paginated<Record<string, unknown>> & { filters?: { event_types?: string[] } })
@@ -146,6 +153,10 @@ export default function NotificationsPage(): React.ReactElement {
   }
 
   async function submitCompose(target: "all_registered_devices" | "selected_users"): Promise<void> {
+    if (composeTemplate === "admin_announcement" && (!composeTitle.trim() || !composeBody.trim())) {
+      toast.error("Title and body are required for announcements.");
+      return;
+    }
     const payload: Record<string, unknown> = {
       target,
       ...(target === "selected_users"
@@ -183,59 +194,25 @@ export default function NotificationsPage(): React.ReactElement {
     <article className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
         <AdminPageHeader
-          title="Push Notification Logs"
-          subtitle={`${formatCount(Number(list?.meta?.total ?? 0))} total delivery records · select users to send targeted test pushes`}
+          title="Notifications"
+          subtitle={`${formatCount(Number(list?.meta?.total ?? 0))} delivery records · compose and send push notifications to app users`}
         />
         <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                disabled={sendBusy}
-                className="border-input bg-background ring-offset-background focus-visible:ring-ring inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-              >
-                Send push
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[220px]">
-                <DropdownMenuItem
-                  onClick={() => {
-                    void mutateSend({
-                      target: "all_registered_devices",
-                      template: "admin_test",
-                    });
-                  }}
-                >
-                  Test notification → all registered devices
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={selectedUserUuids.size === 0}
-                  onClick={() => {
-                    void mutateSend({
-                      target: "selected_users",
-                      user_uuids: [...selectedUserUuids],
-                      template: "admin_test",
-                    });
-                  }}
-                >
-                  Test notification → selected users ({selectedUserUuids.size})
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
               <DialogTrigger
                 render={
-                  <Button type="button" variant="outline">
-                    Compose routing push…
+                  <Button type="button">
+                    New notification
                   </Button>
                 }
               />
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Compose push with deep link</DialogTitle>
+                  <DialogTitle>Send push notification</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3 py-2">
                   <div className="space-y-2">
-                    <Label htmlFor="np-template">Template</Label>
+                    <Label htmlFor="np-template">Type</Label>
                     <select
                       id="np-template"
                       className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
@@ -244,6 +221,7 @@ export default function NotificationsPage(): React.ReactElement {
                         setComposeTemplate(e.target.value as typeof composeTemplate);
                       }}
                     >
+                      <option value="admin_announcement">Announcement (title + message)</option>
                       <option value="admin_test">Admin test (opens Chats)</option>
                       <option value="chat_open">Open chat thread</option>
                       <option value="chat_location_preview">
@@ -253,8 +231,10 @@ export default function NotificationsPage(): React.ReactElement {
                     </select>
                   </div>
                   <div className="grid gap-2 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="np-title">Title (optional)</Label>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="np-title">
+                        Title{composeTemplate === "admin_announcement" ? " *" : " (optional)"}
+                      </Label>
                       <Input
                         id="np-title"
                         value={composeTitle}
@@ -264,7 +244,9 @@ export default function NotificationsPage(): React.ReactElement {
                       />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="np-body">Body (optional)</Label>
+                      <Label htmlFor="np-body">
+                        Message{composeTemplate === "admin_announcement" ? " *" : " (optional)"}
+                      </Label>
                       <Input
                         id="np-body"
                         value={composeBody}
@@ -273,6 +255,62 @@ export default function NotificationsPage(): React.ReactElement {
                         }}
                       />
                     </div>
+                  </div>
+                  <div className="space-y-2 rounded-lg border p-3">
+                    <Label htmlFor="np-user-search">Find users to target</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="np-user-search"
+                        placeholder="Search name or phone"
+                        value={userSearch}
+                        onChange={(e) => {
+                          setUserSearch(e.target.value);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setAppliedUserSearch(userSearch.trim());
+                        }}
+                      >
+                        Search
+                      </Button>
+                    </div>
+                    <div className="max-h-40 space-y-1 overflow-y-auto">
+                      {((userSearchData as Paginated<Record<string, unknown>> | undefined)?.items ?? []).map(
+                        (row) => {
+                          const user = row as Record<string, unknown>;
+                          const uuid = String(user.uuid ?? "");
+                          const label = String(user.name ?? user.phone_number ?? uuid);
+                          if (!uuid) {
+                            return null;
+                          }
+                          return (
+                            <label
+                              key={uuid}
+                              className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedUserUuids.has(uuid)}
+                                onChange={(e) => {
+                                  toggleUser(uuid, e.target.checked);
+                                }}
+                              />
+                              <span>{label}</span>
+                            </label>
+                          );
+                        },
+                      )}
+                      {appliedUserSearch.trim().length >= 2 &&
+                      !((userSearchData as Paginated<Record<string, unknown>> | undefined)?.items?.length) ? (
+                        <p className="text-muted-foreground px-2 py-1 text-xs">No users matched that search.</p>
+                      ) : null}
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {selectedUserUuids.size} user(s) selected for targeted sends.
+                    </p>
                   </div>
                   {(composeTemplate === "chat_open" ||
                     composeTemplate === "chat_location_preview") && (
@@ -341,8 +379,8 @@ export default function NotificationsPage(): React.ReactElement {
                     </div>
                   )}
                   <p className="text-muted-foreground text-xs">
-                    Targets: use either all devices with FCM tokens, or the users you selected in the
-                    table (by app user UUID).
+                    Send to all devices with a registered push token, or only the users you selected
+                    above.
                   </p>
                 </div>
                 <DialogFooter className="flex flex-wrap gap-2">
@@ -368,6 +406,39 @@ export default function NotificationsPage(): React.ReactElement {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={sendBusy}
+                className="border-input bg-background ring-offset-background focus-visible:ring-ring inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+              >
+                Quick test
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[220px]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    void mutateSend({
+                      target: "all_registered_devices",
+                      template: "admin_test",
+                    });
+                  }}
+                >
+                  Test push → all registered devices
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={selectedUserUuids.size === 0}
+                  onClick={() => {
+                    void mutateSend({
+                      target: "selected_users",
+                      user_uuids: [...selectedUserUuids],
+                      template: "admin_test",
+                    });
+                  }}
+                >
+                  Test push → selected users ({selectedUserUuids.size})
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {sendBusy ? (
               <span className="text-muted-foreground flex items-center gap-2 text-xs">
                 <Loader2 className="size-4 animate-spin" />

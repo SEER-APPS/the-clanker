@@ -107,7 +107,7 @@ export const adminApi = createApi({
       Record<string, unknown>
     >({
       query: (body) => ({ url: "/notifications/send", method: "POST", body }),
-      invalidatesTags: ["Notifications"],
+      invalidatesTags: ["Notifications", "Dashboard"],
     }),
     getReloadlyAirtime: builder.query<Record<string, unknown>, { page?: number }>({
       query: (params) => ({ url: "/services/reloadly/airtime", params }),
