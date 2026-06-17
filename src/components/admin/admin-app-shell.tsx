@@ -61,7 +61,6 @@ const NAV_ICON_BY_HREF: Record<string, React.ComponentType<{ className?: string 
   "/users": Users,
   "/threat-alerts": ShieldAlert,
   "/services/hubtel/transactions": ReceiptText,
-  "/conversations": MessageSquareText,
   "/support": Headphones,
   "/notifications": Bell,
   "/balances": Wallet,

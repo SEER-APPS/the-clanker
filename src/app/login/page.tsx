@@ -225,7 +225,7 @@ export default function LoginPage(): React.ReactElement {
             Platform intelligence at a glance.
           </h2>
           <p className="text-[13px] leading-[1.7] text-[#4a4a4a]">
-            Monitor users, threat alerts, conversations, and notifications across the entire platform in real time.
+            Monitor users, threat alerts, app support, and notifications across the platform in real time.
           </p>
         </div>
       </aside>

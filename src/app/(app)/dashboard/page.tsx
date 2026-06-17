@@ -119,13 +119,6 @@ export default function DashboardPage(): React.ReactElement {
 
       <section className="grid gap-3 md:grid-cols-4">
         <div className="admin-stat-tile">
-          <div className="admin-stat-label">Conversations</div>
-          <div className="admin-stat-value">{stat(stats, "total_conversations")}</div>
-          <div className="admin-stat-sub">
-            {stat(stats, "direct_conversations")} direct · {stat(stats, "group_conversations")} groups
-          </div>
-        </div>
-        <div className="admin-stat-tile">
           <div className="admin-stat-label">Blocked Users</div>
           <div className="admin-stat-value">{stat(stats, "blocked_users")}</div>
           <div className="admin-stat-sub">{stat(stats, "new_users_today")} new users today</div>
@@ -140,9 +133,6 @@ export default function DashboardPage(): React.ReactElement {
           <div className="admin-stat-value">{stat(stats, "sent_alerts")}</div>
           <div className="admin-stat-sub">{stat(stats, "cancelled_alerts")} cancelled</div>
         </div>
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-4">
         <div className="admin-stat-tile">
           <div className="admin-stat-label">Open Support</div>
           <div className="admin-stat-value">{stat(stats, "open_support_threads")}</div>
@@ -320,9 +310,9 @@ export default function DashboardPage(): React.ReactElement {
                     </TableCell>
                     <TableCell>
                       {thread.unread ? (
-                        <Badge variant="destructive">Unread</Badge>
+                        <Badge variant="dark">Unread</Badge>
                       ) : (
-                        <Badge variant="secondary">Read</Badge>
+                        <Badge variant="gray">Read</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-[11px] text-muted-foreground">

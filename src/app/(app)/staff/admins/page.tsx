@@ -174,7 +174,7 @@ export default function StaffAdminsPage(): React.ReactElement {
                 </div>
                 <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
                   This admin will have <span className="text-foreground font-semibold">read access</span>{" "}
-                  to users, threat alerts, conversations, and notification logs. They{" "}
+                  to users, threat alerts, app support, and notification logs. They{" "}
                   <span className="text-foreground font-semibold">cannot</span> manage other admin
                   accounts or perform destructive actions reserved for super admins.
                 </p>

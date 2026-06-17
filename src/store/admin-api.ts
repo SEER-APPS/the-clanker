@@ -23,7 +23,6 @@ export const adminApi = createApi({
     "Dashboard",
     "Users",
     "ThreatAlerts",
-    "Conversations",
     "Support",
     "Notifications",
     "SchoolFees",
@@ -81,16 +80,6 @@ export const adminApi = createApi({
     getThreatAlert: builder.query<{ alert: Record<string, unknown> }, string>({
       query: (id) => `/threat-alerts/${encodeURIComponent(id)}`,
       providesTags: (_r, _e, id) => [{ type: "ThreatAlerts", id }],
-    }),
-    getConversations: builder.query<Paginated<Record<string, unknown>>, { page?: number; type?: string }>(
-      {
-        query: (params) => ({ url: "/conversations", params }),
-        providesTags: ["Conversations"],
-      },
-    ),
-    getConversation: builder.query<{ conversation: Record<string, unknown> }, number>({
-      query: (id) => `/conversations/${id}`,
-      providesTags: (_r, _e, id) => [{ type: "Conversations", id }],
     }),
     getSupportConversations: builder.query<
       Paginated<Record<string, unknown>>,
@@ -517,8 +506,6 @@ export const {
   useDeleteUserMutation,
   useGetThreatAlertsQuery,
   useGetThreatAlertQuery,
-  useGetConversationsQuery,
-  useGetConversationQuery,
   useGetSupportConversationsQuery,
   useGetSupportMessagesQuery,
   useSendSupportReplyMutation,

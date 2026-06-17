@@ -88,7 +88,7 @@ export default function SupportPage(): React.ReactElement {
                       </TableCell>
                       <TableCell>{formatRelative(String(item.last_message_at ?? ""))}</TableCell>
                       <TableCell>
-                        {unread ? <Badge variant="destructive">Unread</Badge> : <Badge variant="secondary">Read</Badge>}
+                        {unread ? <Badge variant="dark">Unread</Badge> : <Badge variant="gray">Read</Badge>}
                       </TableCell>
                     </TableRow>
                   );
