@@ -19,6 +19,7 @@ import {
   Briefcase,
   CreditCard,
   Database,
+  Headphones,
   LayoutDashboard,
   MessageSquareText,
   PhoneCall,
@@ -61,6 +62,7 @@ const NAV_ICON_BY_HREF: Record<string, React.ComponentType<{ className?: string 
   "/threat-alerts": ShieldAlert,
   "/services/hubtel/transactions": ReceiptText,
   "/conversations": MessageSquareText,
+  "/support": Headphones,
   "/notifications": Bell,
   "/balances": Wallet,
 

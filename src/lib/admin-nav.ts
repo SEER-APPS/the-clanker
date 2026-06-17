@@ -17,6 +17,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { label: "Threat Alerts", href: "/threat-alerts" },
       { label: "Transactions", href: "/services/hubtel/transactions" },
       { label: "Conversations", href: "/conversations" },
+      { label: "App Support", href: "/support" },
       { label: "Notifications", href: "/notifications" },
       { label: "Balances", href: "/balances" },
     ],

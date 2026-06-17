@@ -142,6 +142,16 @@ export default function DashboardPage(): React.ReactElement {
         </div>
       </section>
 
+      <section className="grid gap-3 md:grid-cols-4">
+        <div className="admin-stat-tile">
+          <div className="admin-stat-label">Open Support</div>
+          <div className="admin-stat-value">{stat(stats, "open_support_threads")}</div>
+          <div className="admin-stat-sub">
+            {stat(stats, "support_messages_today")} customer messages today
+          </div>
+        </div>
+      </section>
+
       <DashboardCharts charts={data.charts} />
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -272,6 +282,65 @@ export default function DashboardPage(): React.ReactElement {
           </CardContent>
         </Card>
       </section>
+
+      <Card className="rounded-none">
+        <CardHeader className="flex flex-row items-center justify-between border-b py-3">
+          <CardTitle className="admin-card-title">Recent App Support</CardTitle>
+          <Link href="/support" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            View all
+          </Link>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="admin-table-heavy-divider">
+              <TableRow>
+                <TableHead className="admin-table-head">Customer</TableHead>
+                <TableHead className="admin-table-head">Last message</TableHead>
+                <TableHead className="admin-table-head">Status</TableHead>
+                <TableHead className="admin-table-head">When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(data.recent_support ?? []).length ? (
+                (data.recent_support ?? []).map((thread) => (
+                  <TableRow key={thread.conversation_uuid} className="hover:bg-muted/30">
+                    <TableCell>
+                      <Link
+                        href={`/support/${thread.conversation_uuid}`}
+                        className="text-foreground font-medium hover:underline"
+                      >
+                        {thread.customer_name}
+                      </Link>
+                      <div className="font-mono text-[11px] text-muted-foreground">
+                        {thread.customer_phone ?? "—"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-md truncate text-[12px]">
+                      {thread.last_message || "—"}
+                    </TableCell>
+                    <TableCell>
+                      {thread.unread ? (
+                        <Badge variant="destructive">Unread</Badge>
+                      ) : (
+                        <Badge variant="secondary">Read</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-[11px] text-muted-foreground">
+                      {formatRelative(thread.last_message_at)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="px-3.5 py-5 text-[12px] text-muted-foreground">
+                    No support messages yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </article>
   );
 }

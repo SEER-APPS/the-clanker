@@ -39,6 +39,14 @@ export type DashboardPayload = {
     created_at: string | null;
     user: { id: number; name: string | null; phone_number: string | null } | null;
   }>;
+  recent_support?: Array<{
+    conversation_uuid: string;
+    customer_name: string;
+    customer_phone: string | null;
+    last_message: string;
+    last_message_at: string;
+    unread: boolean;
+  }>;
   charts: {
     user_growth: { labels: string[]; data: number[] };
     messages_by_hour: { labels: string[]; data: number[] };

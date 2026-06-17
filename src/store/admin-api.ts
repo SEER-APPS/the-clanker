@@ -24,6 +24,7 @@ export const adminApi = createApi({
     "Users",
     "ThreatAlerts",
     "Conversations",
+    "Support",
     "Notifications",
     "SchoolFees",
     "Tickets",
@@ -90,6 +91,38 @@ export const adminApi = createApi({
     getConversation: builder.query<{ conversation: Record<string, unknown> }, number>({
       query: (id) => `/conversations/${id}`,
       providesTags: (_r, _e, id) => [{ type: "Conversations", id }],
+    }),
+    getSupportConversations: builder.query<
+      Paginated<Record<string, unknown>>,
+      { page?: number }
+    >({
+      query: (params) => ({ url: "/support/conversations", params }),
+      providesTags: ["Support"],
+    }),
+    getSupportMessages: builder.query<
+      { conversation_uuid: string; customer: Record<string, unknown> | null; messages: Record<string, unknown>[] },
+      { uuid: string; before?: string }
+    >({
+      query: ({ uuid, before }) => ({
+        url: `/support/conversations/${uuid}/messages`,
+        params: before ? { before } : undefined,
+      }),
+      providesTags: (_r, _e, arg) => [{ type: "Support", id: arg.uuid }],
+    }),
+    sendSupportReply: builder.mutation<
+      { data: Record<string, unknown> },
+      { uuid: string; content: string }
+    >({
+      query: ({ uuid, content }) => ({
+        url: `/support/conversations/${uuid}/messages`,
+        method: "POST",
+        body: { content },
+      }),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: "Support", id: arg.uuid },
+        "Support",
+        "Dashboard",
+      ],
     }),
     getNotifications: builder.query<
       Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> },
@@ -486,6 +519,9 @@ export const {
   useGetThreatAlertQuery,
   useGetConversationsQuery,
   useGetConversationQuery,
+  useGetSupportConversationsQuery,
+  useGetSupportMessagesQuery,
+  useSendSupportReplyMutation,
   useGetNotificationsQuery,
   useSendAdminNotificationMutation,
   useGetReloadlyAirtimeQuery,
