@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useGetSupportConversationsQuery } from "@/store/admin-api";
+import { SupportConversationRow } from "@/components/admin/support-conversation-row";
 import type { Paginated } from "@/types/admin";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,11 +74,11 @@ export default function SupportPage(): React.ReactElement {
                   const uuid = String(item.uuid ?? "");
                   const unread = Boolean(item.unread);
                   return (
-                    <TableRow key={uuid}>
+                    <SupportConversationRow key={uuid} conversationUuid={uuid}>
                       <TableCell>
-                        <Link href={`/support/${uuid}`} className="text-primary hover:underline">
+                        <div className="text-foreground font-medium">
                           {String(customer?.name ?? "Customer")}
-                        </Link>
+                        </div>
                         <div className="text-muted-foreground font-mono text-xs">
                           {String(customer?.phone ?? "—")}
                         </div>
@@ -90,7 +90,7 @@ export default function SupportPage(): React.ReactElement {
                       <TableCell>
                         {unread ? <Badge variant="dark">Unread</Badge> : <Badge variant="gray">Read</Badge>}
                       </TableCell>
-                    </TableRow>
+                    </SupportConversationRow>
                   );
                 })
               )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useGetDashboardQuery } from "@/store/admin-api";
+import { SupportConversationRow } from "@/components/admin/support-conversation-row";
 import { DashboardCharts } from "@/components/admin/dashboard-charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardOverviewSkeleton } from "@/components/admin/admin-loading-skeletons";
@@ -293,14 +294,12 @@ export default function DashboardPage(): React.ReactElement {
             <TableBody>
               {(data.recent_support ?? []).length ? (
                 (data.recent_support ?? []).map((thread) => (
-                  <TableRow key={thread.conversation_uuid} className="hover:bg-muted/30">
+                  <SupportConversationRow
+                    key={thread.conversation_uuid}
+                    conversationUuid={thread.conversation_uuid}
+                  >
                     <TableCell>
-                      <Link
-                        href={`/support/${thread.conversation_uuid}`}
-                        className="text-foreground font-medium hover:underline"
-                      >
-                        {thread.customer_name}
-                      </Link>
+                      <div className="text-foreground font-medium">{thread.customer_name}</div>
                       <div className="font-mono text-[11px] text-muted-foreground">
                         {thread.customer_phone ?? "—"}
                       </div>
@@ -318,7 +317,7 @@ export default function DashboardPage(): React.ReactElement {
                     <TableCell className="text-[11px] text-muted-foreground">
                       {formatRelative(thread.last_message_at)}
                     </TableCell>
-                  </TableRow>
+                  </SupportConversationRow>
                 ))
               ) : (
                 <TableRow>
