@@ -5,6 +5,7 @@ import {
   useCreateHubnetSkuMutation,
   useDeleteHubnetSkuMutation,
   useGetHubnetOffersQuery,
+  useGetHubnetSkusQuery,
   useGetHubnetSummaryQuery,
   useGetHubnetTransactionsQuery,
   useHubnetStatusCheckMutation,
@@ -362,7 +363,7 @@ export default function HubnetAdminPage(): React.ReactElement {
                     <TableCell>GHS {readSkuRetail(sku).toFixed(2)}</TableCell>
                     <TableCell>GHS {readSkuMargin(sku).toFixed(2)}</TableCell>
                     <TableCell>
-                      <Badge variant={sku.active ? "default" : "secondary"}>
+                      <Badge variant={sku.active ? "white" : "gray"}>
                         {sku.active ? "Active" : "Off"}
                       </Badge>
                     </TableCell>
