@@ -450,8 +450,8 @@ export default function HubtelTestsPage(): React.ReactElement {
                   const hubtelMeta = extractHubtelCommissionMeta(payload);
                   const ref = transaction?.client_reference ?? "ok";
                   if (hubtelMeta?.pending || transaction?.response_code === "0001") {
-                    toast.success(
-                      `Hubtel accepted (0001 pending). Ref ${ref}. Airtime may deliver before callback.`,
+                    toast.message(
+                      `Hubtel accepted (0001 pending). Ref ${ref}. Waiting for callback — use Check status.`,
                     );
                   } else {
                     toast.success(`Commission Services completed. Ref ${ref}.`);

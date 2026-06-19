@@ -30,6 +30,7 @@ export const adminApi = createApi({
     "Passport",
     "Permit",
     "Hubtel",
+    "Hubnet",
     "Settings",
     "Staff",
     "Balances",
@@ -123,6 +124,14 @@ export const adminApi = createApi({
           Paginated<Record<string, unknown>> & { filters?: Record<string, unknown> }
         >(raw),
       providesTags: ["Notifications"],
+    }),
+    getNotificationsStatus: builder.query<
+      { fcm_configured: boolean; project_id: string | null },
+      void
+    >({
+      query: () => "/notifications/status",
+      transformResponse: (raw: unknown) =>
+        adminTransformResponse<{ fcm_configured: boolean; project_id: string | null }>(raw),
     }),
     sendAdminNotification: builder.mutation<
       { success?: boolean; data?: Record<string, unknown>; message?: string },
@@ -418,6 +427,59 @@ export const adminApi = createApi({
     hubtelSyncPending: builder.mutation<unknown, void>({
       query: () => ({ url: "/services/hubtel/sync-pending", method: "POST" }),
     }),
+    getHubnetSummary: builder.query<Record<string, unknown>, void>({
+      query: () => "/services/hubnet/summary",
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
+      providesTags: ["Hubnet"],
+    }),
+    getHubnetSkus: builder.query<Record<string, unknown>, void>({
+      query: () => "/services/hubnet/skus",
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
+      providesTags: ["Hubnet"],
+    }),
+    getHubnetOffers: builder.query<Record<string, unknown>, { network?: string } | void>({
+      query: (params) => ({
+        url: "/services/hubnet/offers",
+        params: params?.network ? { network: params.network } : undefined,
+      }),
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
+      providesTags: ["Hubnet"],
+    }),
+    updateHubnetSettings: builder.mutation<
+      unknown,
+      { markup_percent?: number; enabled?: boolean; funding_notes?: string | null }
+    >({
+      query: (body) => ({ url: "/services/hubnet/settings", method: "PUT", body }),
+      invalidatesTags: ["Hubnet"],
+    }),
+    createHubnetSku: builder.mutation<unknown, Record<string, unknown>>({
+      query: (body) => ({ url: "/services/hubnet/skus", method: "POST", body }),
+      invalidatesTags: ["Hubnet"],
+    }),
+    updateHubnetSku: builder.mutation<unknown, { id: number; body: Record<string, unknown> }>({
+      query: ({ id, body }) => ({ url: `/services/hubnet/skus/${id}`, method: "PUT", body }),
+      invalidatesTags: ["Hubnet"],
+    }),
+    deleteHubnetSku: builder.mutation<unknown, number>({
+      query: (id) => ({ url: `/services/hubnet/skus/${id}`, method: "DELETE" }),
+      invalidatesTags: ["Hubnet"],
+    }),
+    hubnetTestDeliver: builder.mutation<unknown, Record<string, unknown>>({
+      query: (body) => ({ url: "/services/hubnet/tests/deliver", method: "POST", body }),
+      invalidatesTags: ["Hubnet"],
+    }),
+    hubnetStatusCheck: builder.mutation<unknown, { reference: string }>({
+      query: (body) => ({ url: "/services/hubnet/tests/status-check", method: "POST", body }),
+      invalidatesTags: ["Hubnet"],
+    }),
+    getHubnetTransactions: builder.query<
+      Record<string, unknown>,
+      { page?: number; per_page?: number; is_test?: string }
+    >({
+      query: (params) => ({ url: "/services/hubnet/transactions", params }),
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
+      providesTags: ["Hubnet"],
+    }),
     serviceOrderVerify: builder.mutation<unknown, { phone: string; network?: string | null }>({
       query: (body) => ({ url: "/services/order/verify", method: "POST", body }),
     }),
@@ -510,6 +572,7 @@ export const {
   useGetSupportMessagesQuery,
   useSendSupportReplyMutation,
   useGetNotificationsQuery,
+  useGetNotificationsStatusQuery,
   useSendAdminNotificationMutation,
   useGetReloadlyAirtimeQuery,
   useGetReloadlyPrepaidQuery,
@@ -563,6 +626,16 @@ export const {
   useHubtelStatusCheckMutation,
   useHubtelRefundMutation,
   useHubtelSyncPendingMutation,
+  useGetHubnetSummaryQuery,
+  useGetHubnetSkusQuery,
+  useGetHubnetOffersQuery,
+  useUpdateHubnetSettingsMutation,
+  useCreateHubnetSkuMutation,
+  useUpdateHubnetSkuMutation,
+  useDeleteHubnetSkuMutation,
+  useHubnetTestDeliverMutation,
+  useHubnetStatusCheckMutation,
+  useGetHubnetTransactionsQuery,
   useServiceOrderVerifyMutation,
   useServiceOrderCreateMutation,
   useServiceOrderPayDirectMutation,

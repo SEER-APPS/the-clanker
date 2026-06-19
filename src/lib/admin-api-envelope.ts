@@ -410,6 +410,16 @@ export function resolveHubtelTxnPaymentStateFromCheck(payload: unknown): HubtelT
 }
 
 export function isHubtelPaymentCheckTerminal(payload: unknown): boolean {
+  const flat = flattenApiData(payload);
+  const hubtelBlock = flat?.hubtel;
+  if (hubtelBlock && typeof hubtelBlock === "object" && !Array.isArray(hubtelBlock)) {
+    const hubtelStatus = String((hubtelBlock as Record<string, unknown>).status ?? "")
+      .trim()
+      .toLowerCase();
+    if (hubtelStatus === "failed" || hubtelStatus === "success") {
+      return true;
+    }
+  }
   const state = resolveHubtelTxnPaymentStateFromCheck(payload);
   return state === "paid" || state === "failed";
 }

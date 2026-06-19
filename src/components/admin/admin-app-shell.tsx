@@ -77,6 +77,7 @@ const NAV_ICON_BY_HREF: Record<string, React.ComponentType<{ className?: string 
   "/services/passport": BookOpenText,
   "/services/permit": Briefcase,
   "/services/hubtel": MessageSquareText,
+  "/services/hubnet": Database,
   "/services/data-catalogue": Database,
 
   "/staff/admins": Users,

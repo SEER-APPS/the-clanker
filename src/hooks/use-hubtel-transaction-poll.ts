@@ -91,7 +91,7 @@ export function useHubtelTransactionPoll({
             ) {
               toast.success("Hubtel payment confirmed.");
             } else if (status === "failed" || hubtelLabel === "failed") {
-              toast.error("Hubtel payment failed.");
+              toast.error(result.hubtelMessage ?? "Hubtel delivery failed.");
             }
           }
           return true;

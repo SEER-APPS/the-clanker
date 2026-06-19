@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import {
   useGetNotificationsQuery,
+  useGetNotificationsStatusQuery,
   useGetUsersQuery,
   useSendAdminNotificationMutation,
 } from "@/store/admin-api";
@@ -71,6 +72,7 @@ export default function NotificationsPage(): React.ReactElement {
     event_type: applied.event_type || undefined,
     search: applied.search || undefined,
   });
+  const { data: pushStatus } = useGetNotificationsStatusQuery();
   const [sendPush, { isLoading: sendBusy }] = useSendAdminNotificationMutation();
   const { data: userSearchData } = useGetUsersQuery(
     { page: 1, search: appliedUserSearch || undefined },
@@ -447,6 +449,18 @@ export default function NotificationsPage(): React.ReactElement {
             ) : null}
         </div>
       </header>
+
+      {pushStatus && !pushStatus.fcm_configured ? (
+        <Card className="border-amber-500/40 bg-amber-500/10">
+          <CardContent className="pt-6 text-sm text-amber-950 dark:text-amber-100">
+            Push notifications are disabled on the API server. Set{" "}
+            <code className="rounded bg-black/10 px-1 py-0.5 text-xs">FIREBASE_CREDENTIALS_JSON</code>{" "}
+            (service account JSON) and{" "}
+            <code className="rounded bg-black/10 px-1 py-0.5 text-xs">FCM_PROJECT_ID</code> on Railway for
+            the core service, then redeploy. Until then, sends return HTTP 503.
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:flex-wrap md:items-end">
