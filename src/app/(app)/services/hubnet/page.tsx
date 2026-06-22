@@ -79,8 +79,6 @@ export default function HubnetAdminPage(): React.ReactElement {
   const [statusCheck, { isLoading: checkingStatus }] = useHubnetStatusCheckMutation();
 
   const settings = (summary?.settings ?? {}) as Record<string, unknown>;
-  const fundingModel = (summary?.funding_model ?? {}) as Record<string, unknown>;
-  const fundingSteps = (fundingModel.steps as string[] | undefined) ?? [];
 
   const [markupPercent, setMarkupPercent] = useState("");
   const [enabled, setEnabled] = useState(false);
@@ -198,32 +196,6 @@ export default function HubnetAdminPage(): React.ReactElement {
       {isLoading ? (
         <p className="text-muted-foreground text-sm">Loading Hubnet summary…</p>
       ) : null}
-
-      <Card className="rounded-none border-amber-500/40 bg-amber-500/5">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Funding model</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <p>{String(fundingModel.summary ?? "")}</p>
-          <ol className="list-decimal space-y-1 pl-5">
-            {fundingSteps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-          <p className="text-muted-foreground">
-            Top up manually at{" "}
-            <a
-              href={String(fundingModel.hubnetConsoleUrl ?? "https://console.hubnet.app")}
-              className="underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              console.hubnet.app
-            </a>
-            . Customer MoMo stays on Hubtel; only wholesale cost leaves Hubnet wallet per delivery.
-          </p>
-        </CardContent>
-      </Card>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-none p-3">
