@@ -76,8 +76,26 @@ export default function BalancesPage(): React.ReactElement {
     : undefined) satisfies Record<string, unknown> | undefined;
 
   const hubtelLive = (hubtelBalance && typeof hubtelBalance === "object"
-    ? (hubtelBalance as { amount?: unknown; responseCode?: unknown; message?: unknown })
-    : undefined) satisfies { amount?: unknown; responseCode?: unknown; message?: unknown } | undefined;
+    ? (hubtelBalance as {
+        amount?: unknown;
+        responseCode?: unknown;
+        message?: unknown;
+        collection?: { amount?: unknown; responseCode?: unknown; message?: unknown; error?: unknown };
+        disbursement?: { amount?: unknown; responseCode?: unknown; message?: unknown; error?: unknown };
+      })
+    : undefined) satisfies
+    | {
+        amount?: unknown;
+        responseCode?: unknown;
+        message?: unknown;
+        collection?: { amount?: unknown; responseCode?: unknown; message?: unknown; error?: unknown };
+        disbursement?: { amount?: unknown; responseCode?: unknown; message?: unknown; error?: unknown };
+      }
+    | undefined;
+
+  const collectionBalance = hubtelLive?.collection?.amount ?? null;
+  const disbursementBalance =
+    hubtelLive?.disbursement?.amount ?? hubtelLive?.amount ?? null;
 
   async function onVerify(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -199,13 +217,10 @@ export default function BalancesPage(): React.ReactElement {
 
         <Card className="rounded-none">
           <CardHeader className="border-b py-3">
-            <CardTitle className="admin-card-title">Hubtel Account Balance</CardTitle>
+            <CardTitle className="admin-card-title">Hubtel Account Balances</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">Disbursement (Prepaid)</div>
-              </div>
+          <CardContent className="space-y-4 py-4">
+            <div className="flex items-center justify-end">
               <Button
                 type="button"
                 variant="ghost"
@@ -227,16 +242,28 @@ export default function BalancesPage(): React.ReactElement {
             </div>
 
             {hubtelLive ? (
-              <div className="space-y-1">
-                <div className="text-primary text-2xl font-semibold">
-                  GHS {formatMoney(hubtelLive.amount)}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1 rounded-md border p-3">
+                  <div className="text-sm font-medium">Collection account</div>
+                  <div className="text-primary text-2xl font-semibold">
+                    GHS {formatMoney(collectionBalance)}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    Customer MoMo payments land here
+                  </div>
                 </div>
-                <div className="text-muted-foreground text-xs">
-                  {String(hubtelLive.responseCode ?? "—")} · {String(hubtelLive.message ?? "—")}
+                <div className="space-y-1 rounded-md border p-3">
+                  <div className="text-sm font-medium">Disbursement (prepaid)</div>
+                  <div className="text-primary text-2xl font-semibold">
+                    GHS {formatMoney(disbursementBalance)}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    Used for airtime, data, and bill delivery
+                  </div>
                 </div>
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">Click Refresh to fetch live Hubtel balance.</p>
+              <p className="text-muted-foreground text-sm">Click Refresh to fetch live Hubtel balances.</p>
             )}
 
             <div className="bg-muted rounded-md p-3 text-sm">
