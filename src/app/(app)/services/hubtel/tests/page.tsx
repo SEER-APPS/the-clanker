@@ -7,7 +7,6 @@ import {
   useHubtelTestSmsBatchMutation,
   useHubtelTestAirtimeMutation,
   useHubtelStatusCheckMutation,
-  useHubtelQueryUtilityMutation,
   useHubtelSyncPendingMutation,
   useHubtelLabConfigQuery,
   useServiceOrderCreateMutation,
@@ -25,6 +24,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { HubtelDataBundlesCard } from "@/app/(app)/services/hubtel/tests/hubtel-data-bundles-card";
 import { HubtelEcgPrepaidCard } from "@/app/(app)/services/hubtel/tests/hubtel-ecg-prepaid-card";
+import { HubtelUtilitiesQueryCard } from "@/app/(app)/services/hubtel/tests/hubtel-utilities-query-card";
 import {
   HubtelTestFollowup,
   type HubtelTestTransactionSnapshot,
@@ -49,14 +49,6 @@ import {
 import { useHubtelPayDirectHandler } from "@/hooks/use-hubtel-pay-direct-handler";
 import { useHubtelTransactionPoll } from "@/hooks/use-hubtel-transaction-poll";
 
-type UtilityServiceKey =
-  | "ecg"
-  | "ghana_water"
-  | "dstv"
-  | "gotv"
-  | "startimes"
-  | "telecel_postpaid";
-
 export default function HubtelTestsPage(): React.ReactElement {
   const [smsPhone, setSmsPhone] = useState("");
   const [smsMsg, setSmsMsg] = useState("");
@@ -72,14 +64,6 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [hubtelStatusLabel, setHubtelStatusLabel] = useState<string | null>(null);
   const [bDest, setBDest] = useState("");
   const [bNet, setBNet] = useState("mtn");
-  const [utilService, setUtilService] = useState<UtilityServiceKey>("ghana_water");
-  const [utilRef, setUtilRef] = useState("");
-  const [utilMobile, setUtilMobile] = useState("");
-  const [utilAmount, setUtilAmount] = useState("");
-  const [utilMeter, setUtilMeter] = useState("");
-  const [utilEmail, setUtilEmail] = useState("");
-  const [utilSessionId, setUtilSessionId] = useState("");
-  const [utilPayeePhone, setUtilPayeePhone] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
@@ -89,7 +73,6 @@ export default function HubtelTestsPage(): React.ReactElement {
   const [smsBatch, { isLoading: smsBatchSending }] = useHubtelTestSmsBatchMutation();
   const [testAirtimeDirect, { isLoading: airtimeDirectSending }] = useHubtelTestAirtimeMutation();
   const [hubtelStatusCheck, { isLoading: hubtelStatusChecking }] = useHubtelStatusCheckMutation();
-  const [qUtil, { isLoading: utilityQuerying }] = useHubtelQueryUtilityMutation();
   const [sync, { isLoading: hubtelSyncing }] = useHubtelSyncPendingMutation();
   const { data: labConfig } = useHubtelLabConfigQuery();
   const [createOrder] = useServiceOrderCreateMutation();
@@ -204,10 +187,7 @@ export default function HubtelTestsPage(): React.ReactElement {
     if (prefetch && !airPayeePhone) {
       setAirPayeePhone(prefetch);
     }
-    if (prefetch && !utilPayeePhone) {
-      setUtilPayeePhone(prefetch);
-    }
-  }, [labConfig, airPayeePhone, utilPayeePhone]);
+  }, [labConfig, airPayeePhone]);
 
   const liveOrderMeter = readServiceOrderMeter(liveOrder);
 
@@ -594,211 +574,20 @@ export default function HubtelTestsPage(): React.ReactElement {
         payDirectBusy={payDirectBusy}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Utilities and TV (query, then checkout)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            Water (Ghana Water) or TV products. For <strong>ECG electricity prepaid</strong>, use the card above. Run{" "}
-            <strong>Query</strong> first when you need balance or session details, then enter amount and pay.
-          </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="util-service">Service</Label>
-              <select
-                id="util-service"
-                className="border-input bg-background h-9 w-full max-w-md rounded-md border px-3 text-sm"
-                value={utilService}
-                onChange={(e) => {
-                  setUtilService(e.target.value as UtilityServiceKey);
-                }}
-              >
-                <option value="ghana_water">Water (Ghana Water)</option>
-                <option value="dstv">DSTV</option>
-                <option value="gotv">GOtv</option>
-                <option value="startimes">StarTimes</option>
-                <option value="telecel_postpaid">Telecel Postpaid</option>
-              </select>
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="util-ref">Reference (phone, meter, or account)</Label>
-              <Input
-                id="util-ref"
-                value={utilRef}
-                onChange={(e) => {
-                  setUtilRef(e.target.value);
-                }}
-                placeholder="e.g. meter number, account, or mobile"
-              />
-            </div>
-            {utilService === "ghana_water" && (
-              <div className="space-y-2">
-                <Label htmlFor="util-mobile">Mobile (optional, water query)</Label>
-                <Input
-                  id="util-mobile"
-                  value={utilMobile}
-                  onChange={(e) => {
-                    setUtilMobile(e.target.value);
-                  }}
-                  placeholder="Ghana Water query"
-                />
-              </div>
-            )}
-            {utilService === "ghana_water" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="util-email">Email (from query)</Label>
-                  <Input
-                    id="util-email"
-                    type="email"
-                    value={utilEmail}
-                    onChange={(e) => {
-                      setUtilEmail(e.target.value);
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="util-session">Session ID (from query)</Label>
-                  <Input
-                    id="util-session"
-                    value={utilSessionId}
-                    onChange={(e) => {
-                      setUtilSessionId(e.target.value);
-                    }}
-                  />
-                </div>
-              </>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="util-amount">Amount (GHS)</Label>
-              <Input
-                id="util-amount"
-                value={utilAmount}
-                onChange={(e) => {
-                  setUtilAmount(e.target.value);
-                }}
-                inputMode="decimal"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="util-payee-phone">Your phone (Direct MoMo payment)</Label>
-              <Input
-                id="util-payee-phone"
-                value={utilPayeePhone}
-                onChange={(e) => {
-                  setUtilPayeePhone(e.target.value);
-                }}
-                onBlur={(e) => {
-                  const normalized = toHubtelInternationalFormat(e.target.value);
-                  if (normalized && normalized !== e.target.value.trim()) {
-                    setUtilPayeePhone(normalized);
-                  }
-                }}
-                placeholder="MoMo number for payment prompt"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={utilityQuerying}
-              aria-busy={utilityQuerying}
-              onClick={async () => {
-                try {
-                  if (!utilRef.trim()) {
-                    toast.error("Enter a reference first.");
-                    return;
-                  }
-                  const body = buildUtilityQueryPayload(utilService, utilRef, utilMobile);
-                  const payload = await qUtil(body).unwrap();
-                  toast.success("Query completed. Check the Network tab for the full JSON response.");
-                } catch (error) {
-                  toast.error(failMsg(error));
-                }
-              }}
-            >
-              {utilityQuerying ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
-                  Querying…
-                </>
-              ) : (
-                "Query"
-              )}
-            </Button>
-            <Button
-              type="button"
-              disabled={utilityCheckoutBusy || anyCheckoutBusy}
-              aria-busy={utilityCheckoutBusy}
-              onClick={async () => {
-                setUtilityCheckoutBusy(true);
-                try {
-                  await submitUtilityOrTvCheckout({
-                    utilService,
-                    utilRef,
-                    utilMobile,
-                    utilAmount,
-                    utilMeter,
-                    utilEmail,
-                    utilSessionId,
-                    startCheckout,
-                  });
-                } catch (error) {
-                  toast.error(failMsg(error));
-                } finally {
-                  setUtilityCheckoutBusy(false);
-                }
-              }}
-            >
-              {utilityCheckoutBusy ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
-                  Creating checkout…
-                </>
-              ) : (
-                "Checkout and pay"
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={anyCheckoutBusy || !isValidHubtelGhanaMobile(utilPayeePhone)}
-              aria-busy={payDirectBusy}
-              onClick={() => {
-                const body = buildUtilityPayDirectBody({
-                  utilService,
-                  utilRef,
-                  utilMobile,
-                  utilAmount,
-                  utilMeter,
-                  utilEmail,
-                  utilSessionId,
-                  payerPhone: utilPayeePhone,
-                });
-                if (!body) {
-                  return;
-                }
-                void runPayDirect(
-                  body.orderBody,
-                  body.recipient,
-                  "MoMo prompt sent (0001 pending). Approve on your phone — service delivers after payment.",
-                );
-              }}
-            >
-              {payDirectBusy ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
-                  Sending MoMo prompt…
-                </>
-              ) : (
-                "Direct MoMo pay (push prompt)"
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <HubtelUtilitiesQueryCard
+        checkoutBusy={utilityCheckoutBusy}
+        anyCheckoutBusy={anyCheckoutBusy}
+        payDirectBusy={payDirectBusy}
+        onCheckout={async (body) => {
+          setUtilityCheckoutBusy(true);
+          try {
+            await startCheckout(body);
+          } finally {
+            setUtilityCheckoutBusy(false);
+          }
+        }}
+        onPayDirect={runPayDirect}
+      />
 
       {lastCsTransaction?.client_reference ? (
         <HubtelTestFollowup
@@ -1090,155 +879,6 @@ function safeGetArray(value: unknown, path: string): unknown[] | null {
     current = (current as Record<string, unknown>)[k];
   }
   return Array.isArray(current) ? current : null;
-}
-
-function buildUtilityQueryPayload(
-  service: UtilityServiceKey,
-  ref: string,
-  mobile: string,
-): Record<string, unknown> {
-  const destination = ref.trim();
-  if (!destination) {
-    return { service, destination: "" };
-  }
-  if (service === "ghana_water") {
-    return { service, destination, mobile: mobile.trim() || destination };
-  }
-  return { service, destination };
-}
-
-function buildUtilityPayDirectBody(args: {
-  utilService: UtilityServiceKey;
-  utilRef: string;
-  utilMobile: string;
-  utilAmount: string;
-  utilMeter: string;
-  utilEmail: string;
-  utilSessionId: string;
-  payerPhone: string;
-}): { orderBody: Record<string, unknown>; recipient: string } | null {
-  const {
-    utilService,
-    utilRef,
-    utilMobile,
-    utilAmount,
-    utilMeter,
-    utilEmail,
-    utilSessionId,
-    payerPhone,
-  } = args;
-
-  const ref = utilRef.trim();
-  const amt = Number(utilAmount);
-  const payer = toHubtelInternationalFormat(payerPhone);
-
-  if (!ref || !Number.isFinite(amt) || amt <= 0) {
-    toast.error("Enter reference and a valid amount.");
-    return null;
-  }
-
-  if (!isValidHubtelGhanaMobile(payer)) {
-    toast.error("Enter a valid payer mobile for Direct MoMo.");
-    return null;
-  }
-
-  if (utilService === "ecg" && !utilMeter.trim()) {
-    toast.error("ECG needs a meter number for payment.");
-    return null;
-  }
-
-  if (utilService === "ghana_water" && (!utilEmail.trim() || !utilSessionId.trim())) {
-    toast.error("Ghana Water needs email and session id from the query step.");
-    return null;
-  }
-
-  const metadata: Record<string, unknown> = {};
-  if (utilService === "ecg") {
-    metadata.customer_phone = ref;
-    metadata.meter_number = utilMeter.trim();
-  } else if (utilService === "ghana_water") {
-    metadata.customer_phone = utilMobile.trim() || ref;
-    metadata.meter_number = utilMeter.trim() || ref;
-    metadata.email = utilEmail.trim();
-    metadata.session_id = utilSessionId.trim();
-  }
-
-  return {
-    recipient: ref,
-    orderBody: {
-      product: utilService,
-      recipient: ref,
-      delivery_amount: amt,
-      charged_amount: amt,
-      payer_phone: payer,
-      description: `${utilService} for ${ref}`,
-      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-    },
-  };
-}
-
-async function submitUtilityOrTvCheckout(args: {
-  utilService: UtilityServiceKey;
-  utilRef: string;
-  utilMobile: string;
-  utilAmount: string;
-  utilMeter: string;
-  utilEmail: string;
-  utilSessionId: string;
-  startCheckout: (
-    body: Record<string, unknown>,
-  ) => Promise<{ recipientName: string | null }>;
-}): Promise<void> {
-  const {
-    utilService,
-    utilRef,
-    utilMobile,
-    utilAmount,
-    utilMeter,
-    utilEmail,
-    utilSessionId,
-    startCheckout,
-  } = args;
-
-  const ref = utilRef.trim();
-  const amt = Number(utilAmount);
-
-  if (!ref || !Number.isFinite(amt) || amt <= 0) {
-    toast.error("Enter reference and a valid amount.");
-    return;
-  }
-
-  if (utilService === "ecg" && !utilMeter.trim()) {
-    toast.error("ECG needs a meter number for payment.");
-    return;
-  }
-
-  if (utilService === "ghana_water" && (!utilEmail.trim() || !utilSessionId.trim())) {
-    toast.error("Ghana Water needs email and session id from the query step.");
-    return;
-  }
-
-  const product = utilService;
-  const metadata: Record<string, unknown> = {};
-
-  if (utilService === "ecg") {
-    metadata.customer_phone = ref;
-    metadata.meter_number = utilMeter.trim();
-  } else if (utilService === "ghana_water") {
-    metadata.customer_phone = utilMobile.trim() || ref;
-    metadata.meter_number = utilMeter.trim() || ref;
-    metadata.email = utilEmail.trim();
-    metadata.session_id = utilSessionId.trim();
-  }
-
-  await startCheckout({
-    product,
-    recipient: ref,
-    delivery_amount: amt,
-    charged_amount: amt,
-    description: `${product} for ${ref}`,
-    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-  });
 }
 
 function formatOrderStatusToast(res: unknown): string {
