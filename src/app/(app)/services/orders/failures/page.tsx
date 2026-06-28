@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 import {
   Table,
   TableBody,
@@ -43,16 +43,6 @@ type FailureOrder = {
   cs_client_reference?: string | null;
   updated_at?: string;
 };
-
-function statusBadgeVariant(status: string | undefined): "destructive" | "secondary" | "outline" {
-  if (status === "failed") {
-    return "destructive";
-  }
-  if (status === "delivering" || status === "paid") {
-    return "secondary";
-  }
-  return "outline";
-}
 
 function formatMoney(value: number | undefined): string {
   if (value == null || Number.isNaN(value)) {
@@ -221,7 +211,7 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
                       </TableCell>
                       <TableCell className="text-sm">GHS {formatMoney(order.delivery_amount)}</TableCell>
                       <TableCell>
-                        <Badge variant={statusBadgeVariant(order.status)}>{order.status ?? "—"}</Badge>
+                        <HubtelStatusBadge status={order.status ?? null} />
                       </TableCell>
                       <TableCell className="max-w-[16rem] text-xs text-muted-foreground">
                         {order.error_message ?? "—"}
