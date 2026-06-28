@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
@@ -167,7 +168,9 @@ export default function BalancesPage(): React.ReactElement {
             <StatCard label="Total Orders" value={String(payload.ordersTotal ?? 0)} />
             <StatCard label="Delivered" value={String(payload.ordersDelivered ?? 0)} />
             <StatCard label="In Progress" value={String(payload.ordersPending ?? 0)} />
-            <StatCard label="Failed" value={String(payload.ordersFailed ?? 0)} />
+            <Link href="/services/orders/failures" className="block">
+              <StatCard label="Failed / stuck" value={String(payload.ordersFailed ?? 0)} />
+            </Link>
           </section>
         </>
       )}

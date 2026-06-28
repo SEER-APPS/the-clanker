@@ -35,6 +35,7 @@ export const adminApi = createApi({
     "Staff",
     "Balances",
     "Features",
+    "ServiceOrders",
   ],
   endpoints: (builder) => ({
     getMe: builder.query<
@@ -263,6 +264,31 @@ export const adminApi = createApi({
     getBalances: builder.query<Record<string, unknown>, void>({
       query: () => "/services/balances",
       providesTags: ["Balances"],
+    }),
+    getServiceOrderFailures: builder.query<
+      {
+        orders: Paginated<Record<string, unknown>>;
+        filters?: Record<string, string>;
+      },
+      { page?: number; per_page?: number; product?: string; status?: string; search?: string }
+    >({
+      query: (params) => ({ url: "/services/orders/failures", params }),
+      providesTags: ["ServiceOrders"],
+    }),
+    redeliverServiceOrder: builder.mutation<
+      {
+        message?: string;
+        order_uuid?: string;
+        status?: string;
+        error_message?: string | null;
+      },
+      string
+    >({
+      query: (uuid) => ({
+        url: `/services/orders/${encodeURIComponent(uuid)}/redeliver`,
+        method: "POST",
+      }),
+      invalidatesTags: ["ServiceOrders", "Balances", "Dashboard"],
     }),
     getHubtelBalance: builder.query<Record<string, unknown>, void>({
       query: () => "/services/balances/hubtel",
@@ -601,6 +627,8 @@ export const {
   usePostDataCatalogueFetchMutation,
   usePostDataCatalogueFindMutation,
   useGetBalancesQuery,
+  useGetServiceOrderFailuresQuery,
+  useRedeliverServiceOrderMutation,
   useGetHubtelBalanceQuery,
   useGetReloadlyBalanceQuery,
   usePostVerifyNumberMutation,

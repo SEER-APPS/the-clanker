@@ -118,7 +118,7 @@ export default function DashboardPage(): React.ReactElement {
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
         <div className="admin-stat-tile">
           <div className="admin-stat-label">Blocked Users</div>
           <div className="admin-stat-value">{stat(stats, "blocked_users")}</div>
@@ -141,6 +141,11 @@ export default function DashboardPage(): React.ReactElement {
             {stat(stats, "support_messages_today")} customer messages today
           </div>
         </div>
+        <Link href="/services/orders/failures" className="admin-stat-tile hover:bg-muted/40 transition-colors">
+          <div className="admin-stat-label">Service delivery failures</div>
+          <div className="admin-stat-value text-destructive">{stat(stats, "service_delivery_failures")}</div>
+          <div className="admin-stat-sub">Failed, paid, or stuck delivering — tap to resend</div>
+        </Link>
       </section>
 
       <DashboardCharts charts={data.charts} />

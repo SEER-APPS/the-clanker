@@ -19,6 +19,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { label: "App Support", href: "/support" },
       { label: "Notifications", href: "/notifications" },
       { label: "Balances", href: "/balances" },
+      { label: "Delivery failures", href: "/services/orders/failures" },
     ],
   },
   {

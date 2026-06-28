@@ -52,6 +52,7 @@ const SIDEBAR_WIDTH_PX = 220;
 const PATH_LABEL_OVERRIDES: Record<string, string> = {
   "/services/analytics/logs": "Analytics / Logs",
   "/services/analytics/failures": "Analytics / Failures",
+  "/services/orders/failures": "Delivery failures",
   "/services/hubtel/transactions": "Hubtel / Transactions",
   "/services/hubtel/tests": "Hubtel / Tools",
 };
@@ -64,6 +65,7 @@ const NAV_ICON_BY_HREF: Record<string, React.ComponentType<{ className?: string 
   "/support": Headphones,
   "/notifications": Bell,
   "/balances": Wallet,
+  "/services/orders/failures": ReceiptText,
 
   "/settings": Settings,
   "/features": ToggleLeft,
