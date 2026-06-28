@@ -11,7 +11,7 @@ import {
 import type { Paginated } from "@/types/admin";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -115,14 +115,26 @@ export default function HubtelTransactionsPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
-      <header>
-        <Link
-          href="/services/hubtel"
-          className="text-muted-foreground text-sm hover:underline"
-        >
-          Back to Hubtel
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <Link
+            href="/services/hubtel"
+            className="text-muted-foreground text-sm hover:underline"
+          >
+            Back to Hubtel
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Transactions</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Hubtel payment rows. To resend a paid service to the customer (ECG, airtime, etc.), use{" "}
+            <Link href="/services/orders/failures" className="text-foreground underline">
+              Delivery failures
+            </Link>
+            .
+          </p>
+        </div>
+        <Link href="/services/orders/failures" className={buttonVariants({ variant: "default", size: "sm" })}>
+          Resend failed deliveries
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Transactions</h1>
       </header>
 
       <Card>

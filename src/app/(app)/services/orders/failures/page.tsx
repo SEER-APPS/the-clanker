@@ -2,17 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Loader2, RotateCcw } from "lucide-react";
-import { toast } from "sonner";
 
-import {
-  useGetServiceOrderFailuresQuery,
-  useRedeliverServiceOrderMutation,
-} from "@/store/admin-api";
+import { useGetServiceOrderFailuresQuery } from "@/store/admin-api";
 import type { Paginated } from "@/types/admin";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
+import { ServiceOrderResendButton } from "@/components/admin/service-order-resend-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,7 +53,6 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState({ product: "", status: "", search: "" });
-  const [redeliveringUuid, setRedeliveringUuid] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useGetServiceOrderFailuresQuery({
     page,
@@ -65,39 +60,8 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
     status: applied.status || undefined,
     search: applied.search || undefined,
   });
-  const [redeliver] = useRedeliverServiceOrderMutation();
-
   const block = data as { orders?: Paginated<FailureOrder> } | undefined;
   const list = block?.orders;
-
-  async function handleRedeliver(order: FailureOrder): Promise<void> {
-    if (!order.can_redeliver || !order.order_uuid) {
-      return;
-    }
-    setRedeliveringUuid(order.order_uuid);
-    try {
-      const result = await redeliver(order.order_uuid).unwrap();
-      const status = typeof result.status === "string" ? result.status : undefined;
-      const errorMessage =
-        typeof result.error_message === "string" ? result.error_message : undefined;
-      if (status === "delivered") {
-        toast.success(typeof result.message === "string" ? result.message : "Service delivered.");
-      } else if (status === "failed") {
-        toast.error(errorMessage ?? (typeof result.message === "string" ? result.message : "Delivery failed again."));
-      } else {
-        toast.message(typeof result.message === "string" ? result.message : "Delivery submitted — awaiting Hubtel callback.");
-      }
-      await refetch();
-    } catch (error: unknown) {
-      const message =
-        error && typeof error === "object" && "data" in error
-          ? String((error as { data?: { message?: string } }).data?.message ?? "Redelivery failed.")
-          : "Redelivery failed.";
-      toast.error(message);
-    } finally {
-      setRedeliveringUuid(null);
-    }
-  }
 
   return (
     <article className="space-y-6">
@@ -217,20 +181,13 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
                         {order.error_message ?? "—"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={!order.can_redeliver || redeliveringUuid === order.order_uuid}
-                          onClick={() => void handleRedeliver(order)}
-                        >
-                          {redeliveringUuid === order.order_uuid ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                          )}
-                          Resend
-                        </Button>
+                        <ServiceOrderResendButton
+                          orderUuid={order.order_uuid}
+                          status={order.status}
+                          onCompleted={() => {
+                            void refetch();
+                          }}
+                        />
                       </TableCell>
                     </TableRow>
                   ))

@@ -6,8 +6,9 @@ import {
   useGetReloadlyBalanceQuery,
   usePostVerifyNumberMutation,
 } from "@/store/admin-api";
+import { ServiceOrderResendButton } from "@/components/admin/service-order-resend-button";
+import { buttonVariants, Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
@@ -54,7 +55,7 @@ type RecentOrder = {
 };
 
 export default function BalancesPage(): React.ReactElement {
-  const { data: summary, isLoading } = useGetBalancesQuery();
+  const { data: summary, isLoading, refetch: refetchBalances } = useGetBalancesQuery();
   const { data: reloadly, refetch: refetchReloadly, isFetching: reloadlyBalanceFetching } =
     useGetReloadlyBalanceQuery();
   const {
@@ -119,10 +120,18 @@ export default function BalancesPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
-      <AdminPageHeader
-        title="Provider Balances"
-        subtitle="Monitor funds across Hubtel and Reloadly — and verify customer numbers"
-      />
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <AdminPageHeader
+          title="Provider Balances"
+          subtitle="Monitor funds across Hubtel and Reloadly — and verify customer numbers"
+        />
+        <Link
+          href="/services/orders/failures"
+          className={buttonVariants({ variant: "default", size: "sm" })}
+        >
+          Resend failed deliveries
+        </Link>
+      </header>
 
       {isLoading || !payload ? (
         <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -357,9 +366,14 @@ export default function BalancesPage(): React.ReactElement {
       </Card>
 
       <Card className="rounded-none">
-        <CardHeader className="border-b py-3">
-          <CardTitle className="admin-card-title">Recent Service Orders</CardTitle>
-          <p className="text-muted-foreground text-xs">Payment-first orders from the public API</p>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b py-3">
+          <div>
+            <CardTitle className="admin-card-title">Recent Service Orders</CardTitle>
+            <p className="text-muted-foreground text-xs">Payment-first orders from the public API</p>
+          </div>
+          <Link href="/services/orders/failures" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            All delivery failures
+          </Link>
         </CardHeader>
         <CardContent className="py-4">
           <div className="overflow-x-auto">
@@ -373,6 +387,7 @@ export default function BalancesPage(): React.ReactElement {
                   <TableHead>Markup</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -406,11 +421,20 @@ export default function BalancesPage(): React.ReactElement {
                       <TableCell className="text-muted-foreground text-xs">
                         {o.created_human ?? "—"}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <ServiceOrderResendButton
+                          orderUuid={o.uuid}
+                          status={o.status}
+                          onCompleted={() => {
+                            void refetchBalances();
+                          }}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-muted-foreground py-10 text-center">
+                    <TableCell colSpan={8} className="text-muted-foreground py-10 text-center">
                       No service orders yet. Orders appear here when customers pay via the API.
                     </TableCell>
                   </TableRow>
