@@ -125,16 +125,10 @@ export default function HubtelTransactionsPage(): React.ReactElement {
           </Link>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Transactions</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Hubtel payment rows. To resend a paid service to the customer (ECG, airtime, etc.), use{" "}
-            <Link href="/services/orders/failures" className="text-foreground underline">
-              Delivery failures
-            </Link>
-            .
+            Hubtel payment rows. Open a transaction to review details and resend delivery for that
+            order only.
           </p>
         </div>
-        <Link href="/services/orders/failures" className={buttonVariants({ variant: "default", size: "sm" })}>
-          Resend failed deliveries
-        </Link>
       </header>
 
       <Card>

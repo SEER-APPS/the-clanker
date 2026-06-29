@@ -14,6 +14,10 @@ import { formatAdminMutationError } from "@/lib/admin-api-envelope";
 import { Loader2 } from "lucide-react";
 import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
 import { HubtelTransactionDetailView } from "@/components/hubtel/hubtel-transaction-detail-view";
+import {
+  readLinkedServiceOrder,
+  ServiceOrderResendButton,
+} from "@/components/admin/service-order-resend-button";
 
 export default function HubtelTransactionDetailPage({
   params,
@@ -27,6 +31,7 @@ export default function HubtelTransactionDetailPage({
   const [refresh, { isLoading: rfBusy }] = useRefreshHubtelTransactionMutation();
 
   const tx = data?.transaction as Record<string, unknown> | undefined;
+  const linkedOrder = tx ? readLinkedServiceOrder(tx) : null;
 
   async function onDelete(): Promise<void> {
     if (!window.confirm("Delete this transaction?")) {
@@ -83,6 +88,18 @@ export default function HubtelTransactionDetailPage({
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
+          {linkedOrder ? (
+            <ServiceOrderResendButton
+              orderUuid={linkedOrder.orderUuid}
+              status={linkedOrder.status}
+              productLabel={linkedOrder.productLabel}
+              deliveryAmount={linkedOrder.deliveryAmount}
+              size="default"
+              onCompleted={() => {
+                void refetch();
+              }}
+            />
+          ) : null}
           <Button
             type="button"
             variant="outline"

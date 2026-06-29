@@ -6,7 +6,6 @@ import {
   useGetReloadlyBalanceQuery,
   usePostVerifyNumberMutation,
 } from "@/store/admin-api";
-import { ServiceOrderResendButton } from "@/components/admin/service-order-resend-button";
 import { buttonVariants, Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -127,9 +126,9 @@ export default function BalancesPage(): React.ReactElement {
         />
         <Link
           href="/services/orders/failures"
-          className={buttonVariants({ variant: "default", size: "sm" })}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
         >
-          Resend failed deliveries
+          View delivery queue
         </Link>
       </header>
 
@@ -372,7 +371,7 @@ export default function BalancesPage(): React.ReactElement {
             <p className="text-muted-foreground text-xs">Payment-first orders from the public API</p>
           </div>
           <Link href="/services/orders/failures" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            All delivery failures
+            View delivery queue
           </Link>
         </CardHeader>
         <CardContent className="py-4">
@@ -387,7 +386,6 @@ export default function BalancesPage(): React.ReactElement {
                   <TableHead>Markup</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -421,20 +419,11 @@ export default function BalancesPage(): React.ReactElement {
                       <TableCell className="text-muted-foreground text-xs">
                         {o.created_human ?? "—"}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <ServiceOrderResendButton
-                          orderUuid={o.uuid}
-                          status={o.status}
-                          onCompleted={() => {
-                            void refetchBalances();
-                          }}
-                        />
-                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-muted-foreground py-10 text-center">
+                    <TableCell colSpan={7} className="text-muted-foreground py-10 text-center">
                       No service orders yet. Orders appear here when customers pay via the API.
                     </TableCell>
                   </TableRow>

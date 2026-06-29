@@ -8,7 +8,6 @@ import type { Paginated } from "@/types/admin";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
-import { ServiceOrderResendButton } from "@/components/admin/service-order-resend-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,9 +33,9 @@ type FailureOrder = {
   charged_amount?: number;
   status?: string;
   error_message?: string | null;
-  can_redeliver?: boolean;
   payment_reference?: string | null;
   cs_client_reference?: string | null;
+  hubtel_transaction_uuid?: string | null;
   updated_at?: string;
 };
 
@@ -54,7 +53,7 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState({ product: "", status: "", search: "" });
 
-  const { data, isLoading, isError, refetch } = useGetServiceOrderFailuresQuery({
+  const { data, isLoading, isError } = useGetServiceOrderFailuresQuery({
     page,
     product: applied.product || undefined,
     status: applied.status || undefined,
@@ -71,12 +70,12 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
             Back to balances
           </Link>
           <AdminPageHeader
-            title="Service delivery failures"
-            subtitle="Paid orders that failed or are stuck before Hubtel Commission Services delivery completes. Resend uses the customer numbers stored on the order."
+            title="Service delivery queue"
+            subtitle="Paid orders that failed or are stuck before delivery completes. Review each Hubtel transaction before resending — resend is only available on the transaction detail page."
           />
         </div>
-        <Link href="/services/hubtel" className={buttonVariants({ variant: "outline", size: "sm" })}>
-          Hubtel overview
+        <Link href="/services/hubtel/transactions" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          Hubtel transactions
         </Link>
       </header>
 
@@ -121,7 +120,7 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
         </CardContent>
       </Card>
 
-      {isError ? <p className="text-destructive text-sm">Could not load delivery failures.</p> : null}
+      {isError ? <p className="text-destructive text-sm">Could not load delivery queue.</p> : null}
 
       <Card>
         <CardHeader>
@@ -138,7 +137,7 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Error</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-right">Transaction</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,13 +180,16 @@ export default function ServiceOrderFailuresPage(): React.ReactElement {
                         {order.error_message ?? "—"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <ServiceOrderResendButton
-                          orderUuid={order.order_uuid}
-                          status={order.status}
-                          onCompleted={() => {
-                            void refetch();
-                          }}
-                        />
+                        {order.hubtel_transaction_uuid ? (
+                          <Link
+                            href={`/services/hubtel/transactions/${order.hubtel_transaction_uuid}`}
+                            className={buttonVariants({ variant: "outline", size: "sm" })}
+                          >
+                            Review & resend
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">No linked payment</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

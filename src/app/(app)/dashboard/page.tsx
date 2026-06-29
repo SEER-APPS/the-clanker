@@ -142,9 +142,9 @@ export default function DashboardPage(): React.ReactElement {
           </div>
         </div>
         <Link href="/services/orders/failures" className="admin-stat-tile hover:bg-muted/40 transition-colors">
-          <div className="admin-stat-label">Service delivery failures</div>
+          <div className="admin-stat-label">Delivery queue</div>
           <div className="admin-stat-value text-destructive">{stat(stats, "service_delivery_failures")}</div>
-          <div className="admin-stat-sub">Failed, paid, or stuck delivering — tap to resend</div>
+          <div className="admin-stat-sub">Failed, paid, or stuck delivering — review queue</div>
         </Link>
       </section>
 
