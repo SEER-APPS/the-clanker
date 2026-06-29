@@ -18,6 +18,11 @@ import {
   readLinkedServiceOrder,
   ServiceOrderResendButton,
 } from "@/components/admin/service-order-resend-button";
+import {
+  canRetryHubtelCommissionTransaction,
+  HubtelCommissionRetryButton,
+} from "@/components/admin/hubtel-commission-retry-button";
+import { canRedeliverServiceOrderStatus } from "@/lib/service-order-redeliver";
 
 export default function HubtelTransactionDetailPage({
   params,
@@ -32,6 +37,20 @@ export default function HubtelTransactionDetailPage({
 
   const tx = data?.transaction as Record<string, unknown> | undefined;
   const linkedOrder = tx ? readLinkedServiceOrder(tx) : null;
+  const showResend =
+    linkedOrder != null && canRedeliverServiceOrderStatus(linkedOrder.status);
+  const showCommissionRetry =
+    tx != null && canRetryHubtelCommissionTransaction(tx, linkedOrder != null);
+  const deliveryAmount =
+    linkedOrder?.deliveryAmount ??
+    (tx?.amount != null && Number.isFinite(Number(tx.amount)) ? Number(tx.amount) : null);
+  const productLabel =
+    linkedOrder?.productLabel ??
+    (typeof tx?.product_label === "string"
+      ? tx.product_label
+      : typeof tx?.product === "string"
+        ? tx.product
+        : null);
 
   async function onDelete(): Promise<void> {
     if (!window.confirm("Delete this transaction?")) {
@@ -88,16 +107,24 @@ export default function HubtelTransactionDetailPage({
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          {linkedOrder ? (
+          {showResend && linkedOrder ? (
             <ServiceOrderResendButton
               orderUuid={linkedOrder.orderUuid}
               status={linkedOrder.status}
-              productLabel={linkedOrder.productLabel}
-              deliveryAmount={linkedOrder.deliveryAmount}
+              productLabel={productLabel}
+              deliveryAmount={deliveryAmount}
               size="default"
               onCompleted={() => {
                 void refetch();
               }}
+            />
+          ) : null}
+          {showCommissionRetry ? (
+            <HubtelCommissionRetryButton
+              transactionUuid={raw}
+              productLabel={productLabel}
+              deliveryAmount={deliveryAmount}
+              size="default"
             />
           ) : null}
           <Button
@@ -156,6 +183,28 @@ export default function HubtelTransactionDetailPage({
           </Button>
         </div>
       </header>
+      {!showResend && !showCommissionRetry && String(tx.status ?? "").toLowerCase() === "failed" ? (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+          {linkedOrder ? (
+            <p>
+              This transaction is linked to a customer order, but its status (
+              <span className="font-mono">{String(linkedOrder.status ?? "unknown")}</span>) cannot be
+              resent from here. Check the{" "}
+              <Link href="/services/orders/failures" className="underline">
+                delivery queue
+              </Link>{" "}
+              or contact support if delivery still looks wrong.
+            </p>
+          ) : (
+            <p>
+              This Hubtel row has no linked customer service order (common for admin lab tests with{" "}
+              <span className="font-mono">admin-airtime</span> /{" "}
+              <span className="font-mono">admin-utility</span> references). Customer purchases use
+              a linked order and show <strong>Resend delivery</strong> when retry is allowed.
+            </p>
+          )}
+        </div>
+      ) : null}
       <HubtelTransactionDetailView tx={tx} />
     </article>
   );

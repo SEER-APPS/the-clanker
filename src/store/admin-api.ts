@@ -374,6 +374,14 @@ export const adminApi = createApi({
       },
       invalidatesTags: ["Hubtel"],
     }),
+    retryHubtelCommission: builder.mutation<Record<string, unknown>, string>({
+      query: (uuid) => ({
+        url: `/services/hubtel/transactions/uuid/${encodeURIComponent(uuid)}/retry-commission`,
+        method: "POST",
+      }),
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
+      invalidatesTags: ["Hubtel"],
+    }),
     hubtelBatchDelete: builder.mutation<unknown, { ids: number[] }>({
       query: (body) => ({
         url: "/services/hubtel/transactions/batch-delete",
@@ -638,6 +646,7 @@ export const {
   useDeleteHubtelTransactionMutation,
   useArchiveHubtelTransactionMutation,
   useRefreshHubtelTransactionMutation,
+  useRetryHubtelCommissionMutation,
   useHubtelBatchDeleteMutation,
   useHubtelBatchArchiveMutation,
   useHubtelBatchRefreshStatusMutation,
