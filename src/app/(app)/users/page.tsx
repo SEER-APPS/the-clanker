@@ -11,6 +11,7 @@ import {
 import type { Paginated } from "@/types/admin";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ export default function UsersPage(): React.ReactElement {
   const [unblockUser] = useUnblockUserMutation();
   const [deleteUser] = useDeleteUserMutation();
   const [actionKey, setActionKey] = useState<string | null>(null);
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
 
   const list = data as Paginated<Record<string, unknown>> | undefined;
   const showTableSkeleton = isLoading && !list;
@@ -71,8 +73,16 @@ export default function UsersPage(): React.ReactElement {
     action: "block" | "unblock" | "delete",
     uuid: string,
   ): Promise<void> {
-    if (action === "delete" && !window.confirm("Delete this user permanently?")) {
-      return;
+    if (action === "delete") {
+      const confirmed = await confirm({
+        title: "Delete user?",
+        description: "Delete this user permanently? This cannot be undone.",
+        confirmLabel: "Delete user",
+        destructive: true,
+      });
+      if (!confirmed) {
+        return;
+      }
     }
     const key = `${uuid}:${action}`;
     setActionKey(key);
@@ -114,6 +124,7 @@ export default function UsersPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
+      {confirmDialog}
       <AdminPageHeader
         title="Users"
         subtitle="Search, filter, and manage end-user accounts."

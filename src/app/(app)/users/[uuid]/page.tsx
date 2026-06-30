@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AdminDetailPageSkeleton } from "@/components/admin/admin-loading-skeletons";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 
 export default function UserDetailPage({
   params,
@@ -29,13 +30,22 @@ export default function UserDetailPage({
   const [unblockUser] = useUnblockUserMutation();
   const [deleteUser] = useDeleteUserMutation();
   const [pending, setPending] = useState<"block" | "unblock" | "delete" | null>(null);
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
 
   const user = data?.user as Record<string, unknown> | undefined;
   const blocked = Boolean(user?.is_blocked);
 
   async function run(action: "block" | "unblock" | "delete"): Promise<void> {
-    if (action === "delete" && !window.confirm("Delete this user permanently?")) {
-      return;
+    if (action === "delete") {
+      const confirmed = await confirm({
+        title: "Delete user?",
+        description: "Delete this user permanently? This cannot be undone.",
+        confirmLabel: "Delete user",
+        destructive: true,
+      });
+      if (!confirmed) {
+        return;
+      }
     }
     setPending(action);
     try {
@@ -77,6 +87,7 @@ export default function UserDetailPage({
 
   return (
     <article className="space-y-6">
+      {confirmDialog}
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <Link href="/users" className="text-muted-foreground text-sm hover:underline">

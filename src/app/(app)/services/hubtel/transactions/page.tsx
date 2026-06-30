@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 
 export default function HubtelTransactionsPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -58,6 +59,7 @@ export default function HubtelTransactionsPage(): React.ReactElement {
   const [batchDelete, { isLoading: dBusy }] = useHubtelBatchDeleteMutation();
   const [batchArchive, { isLoading: aBusy }] = useHubtelBatchArchiveMutation();
   const [batchRefresh, { isLoading: rBusy }] = useHubtelBatchRefreshStatusMutation();
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
 
   const txWrap = data as Paginated<Record<string, unknown>> | undefined;
   const rows = txWrap?.items ?? [];
@@ -90,8 +92,16 @@ export default function HubtelTransactionsPage(): React.ReactElement {
       toast.error("Select at least one row.");
       return;
     }
-    if (kind === "delete" && !window.confirm(`Delete ${ids.length} transaction(s)?`)) {
-      return;
+    if (kind === "delete") {
+      const confirmed = await confirm({
+        title: "Delete transactions?",
+        description: `Delete ${ids.length} transaction(s)? This cannot be undone.`,
+        confirmLabel: "Delete",
+        destructive: true,
+      });
+      if (!confirmed) {
+        return;
+      }
     }
     try {
       if (kind === "delete") {
@@ -115,6 +125,7 @@ export default function HubtelTransactionsPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
+      {confirmDialog}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link

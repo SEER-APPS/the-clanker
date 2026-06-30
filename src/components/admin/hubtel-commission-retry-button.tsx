@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 import { formatAdminMutationError, readAdminField } from "@/lib/admin-api-envelope";
 import { useRetryHubtelCommissionMutation } from "@/store/admin-api";
 
@@ -47,12 +48,15 @@ export function HubtelCommissionRetryButton({
   const router = useRouter();
   const [retry, { isLoading }] = useRetryHubtelCommissionMutation();
   const [busy, setBusy] = useState(false);
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
 
   async function handleRetry(): Promise<void> {
     const serviceName = productLabel?.trim() || "this service";
-    const confirmed = window.confirm(
-      `Retry ${serviceName} delivery through Hubtel?\n\nThis charges ${formatConfirmAmount(deliveryAmount)} from your Hubtel disbursement balance and creates a new delivery attempt.`,
-    );
+    const confirmed = await confirm({
+      title: "Retry Hubtel delivery?",
+      description: `Retry ${serviceName} delivery through Hubtel?\n\nThis charges ${formatConfirmAmount(deliveryAmount)} from your Hubtel disbursement balance and creates a new delivery attempt.`,
+      confirmLabel: "Retry delivery",
+    });
     if (!confirmed) {
       return;
     }
@@ -76,7 +80,9 @@ export function HubtelCommissionRetryButton({
   const loading = busy || isLoading;
 
   return (
-    <Button
+    <>
+      {confirmDialog}
+      <Button
       type="button"
       size={size}
       variant="outline"
@@ -90,5 +96,6 @@ export function HubtelCommissionRetryButton({
       )}
       Retry Hubtel delivery
     </Button>
+    </>
   );
 }

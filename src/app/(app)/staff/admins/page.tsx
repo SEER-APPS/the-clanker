@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +45,7 @@ export default function StaffAdminsPage(): React.ReactElement {
   const [open, setOpen] = useState(false);
   const [rolePendingId, setRolePendingId] = useState<number | null>(null);
   const [removePendingId, setRemovePendingId] = useState<number | null>(null);
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
 
   if (!me?.admin.is_super_admin) {
     return (
@@ -72,6 +74,7 @@ export default function StaffAdminsPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <AdminPageHeader
           title="Admin Accounts"
@@ -334,14 +337,17 @@ export default function StaffAdminsPage(): React.ReactElement {
                               }
                               aria-busy={removePendingId === id}
                               onClick={() => {
-                                if (
-                                  !window.confirm(
-                                    `Remove ${String(a.name ?? "this admin")}'s admin access?`,
-                                  )
-                                ) {
-                                  return;
-                                }
                                 void (async () => {
+                                  const adminName = String(a.name ?? "this admin");
+                                  const confirmed = await confirm({
+                                    title: "Remove admin access?",
+                                    description: `Remove ${adminName}'s admin access? They will no longer be able to sign in to the admin dashboard.`,
+                                    confirmLabel: "Remove access",
+                                    destructive: true,
+                                  });
+                                  if (!confirmed) {
+                                    return;
+                                  }
                                   setRemovePendingId(id);
                                   try {
                                     await remove(id).unwrap();

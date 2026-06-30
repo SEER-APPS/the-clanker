@@ -5,6 +5,7 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 import { useRedeliverServiceOrderMutation } from "@/store/admin-api";
 import { canRedeliverServiceOrderStatus } from "@/lib/service-order-redeliver";
 
@@ -34,6 +35,7 @@ export function ServiceOrderResendButton({
 }: ServiceOrderResendButtonProps): React.ReactElement | null {
   const [redeliver, { isLoading }] = useRedeliverServiceOrderMutation();
   const [busy, setBusy] = useState(false);
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
 
   if (!canRedeliverServiceOrderStatus(status)) {
     return null;
@@ -41,9 +43,11 @@ export function ServiceOrderResendButton({
 
   async function handleRedeliver(): Promise<void> {
     const serviceName = productLabel?.trim() || "this service";
-    const confirmed = window.confirm(
-      `Resend ${serviceName} to the customer?\n\nThis charges ${formatConfirmAmount(deliveryAmount)} from your Hubtel disbursement balance. Only continue if you have verified this order should be delivered again.`,
-    );
+    const confirmed = await confirm({
+      title: "Resend delivery?",
+      description: `Resend ${serviceName} to the customer?\n\nThis charges ${formatConfirmAmount(deliveryAmount)} from your Hubtel disbursement balance. Only continue if you have verified this order should be delivered again.`,
+      confirmLabel: "Resend delivery",
+    });
     if (!confirmed) {
       return;
     }
@@ -83,7 +87,9 @@ export function ServiceOrderResendButton({
   const loading = busy || isLoading;
 
   return (
-    <Button
+    <>
+      {confirmDialog}
+      <Button
       type="button"
       size={size}
       variant="outline"
@@ -97,6 +103,7 @@ export function ServiceOrderResendButton({
       )}
       Resend delivery
     </Button>
+    </>
   );
 }
 

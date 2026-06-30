@@ -23,6 +23,7 @@ import {
   HubtelCommissionRetryButton,
 } from "@/components/admin/hubtel-commission-retry-button";
 import { canRedeliverServiceOrderStatus } from "@/lib/service-order-redeliver";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 
 export default function HubtelTransactionDetailPage({
   params,
@@ -34,6 +35,7 @@ export default function HubtelTransactionDetailPage({
   const [remove, { isLoading: rmBusy }] = useDeleteHubtelTransactionMutation();
   const [archive, { isLoading: arBusy }] = useArchiveHubtelTransactionMutation();
   const [refresh, { isLoading: rfBusy }] = useRefreshHubtelTransactionMutation();
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
 
   const tx = data?.transaction as Record<string, unknown> | undefined;
   const linkedOrder = tx ? readLinkedServiceOrder(tx) : null;
@@ -53,7 +55,13 @@ export default function HubtelTransactionDetailPage({
         : null);
 
   async function onDelete(): Promise<void> {
-    if (!window.confirm("Delete this transaction?")) {
+    const confirmed = await confirm({
+      title: "Delete transaction?",
+      description: "Delete this transaction? This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
     try {
@@ -94,6 +102,7 @@ export default function HubtelTransactionDetailPage({
 
   return (
     <article className="space-y-6">
+      {confirmDialog}
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <Link

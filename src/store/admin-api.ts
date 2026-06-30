@@ -294,6 +294,17 @@ export const adminApi = createApi({
       query: () => "/services/balances/hubtel",
       providesTags: ["Balances"],
     }),
+    postHubtelDisbursementTopUp: builder.mutation<
+      Record<string, unknown>,
+      { amount_ghs: number; description?: string }
+    >({
+      query: (body) => ({
+        url: "/services/balances/hubtel/top-up",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Balances"],
+    }),
     getReloadlyBalance: builder.query<Record<string, unknown>, void>({
       query: () => "/services/balances/reloadly",
       providesTags: ["Balances"],
@@ -638,6 +649,7 @@ export const {
   useGetServiceOrderFailuresQuery,
   useRedeliverServiceOrderMutation,
   useGetHubtelBalanceQuery,
+  usePostHubtelDisbursementTopUpMutation,
   useGetReloadlyBalanceQuery,
   usePostVerifyNumberMutation,
   useGetHubtelSummaryQuery,

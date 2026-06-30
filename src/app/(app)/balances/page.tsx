@@ -4,6 +4,7 @@ import {
   useGetBalancesQuery,
   useGetHubtelBalanceQuery,
   useGetReloadlyBalanceQuery,
+  usePostHubtelDisbursementTopUpMutation,
   usePostVerifyNumberMutation,
 } from "@/store/admin-api";
 import { buttonVariants, Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { useAdminConfirm } from "@/hooks/use-admin-confirm";
 import {
   Table,
   TableBody,
@@ -22,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowRightLeft } from "lucide-react";
 
 type BalancesPayload = {
   hubtelSpent?: number;
@@ -63,10 +65,13 @@ export default function BalancesPage(): React.ReactElement {
     isFetching: hubtelBalanceFetching,
   } = useGetHubtelBalanceQuery();
   const [verify, { isLoading: verifying }] = usePostVerifyNumberMutation();
+  const [topUp, { isLoading: toppingUp }] = usePostHubtelDisbursementTopUpMutation();
+  const { confirm, dialog: confirmDialog } = useAdminConfirm();
   const [phone, setPhone] = useState("");
   const [network, setNetwork] = useState("");
   const [mode, setMode] = useState("both");
   const [verifyResult, setVerifyResult] = useState<unknown>(null);
+  const [topUpAmount, setTopUpAmount] = useState("");
 
   const payload = (summary && typeof summary === "object"
     ? (summary as BalancesPayload)
@@ -97,6 +102,47 @@ export default function BalancesPage(): React.ReactElement {
   const collectionBalance = hubtelLive?.collection?.amount ?? null;
   const disbursementBalance =
     hubtelLive?.disbursement?.amount ?? hubtelLive?.amount ?? null;
+  const collectionAmount =
+    typeof collectionBalance === "number" ? collectionBalance : Number(collectionBalance ?? NaN);
+  const canTopUpDisbursement = hubtelLive != null && Number.isFinite(collectionAmount);
+
+  async function onTopUpDisbursement(): Promise<void> {
+    const amount = Number(topUpAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid top-up amount in GHS.");
+      return;
+    }
+    if (Number.isFinite(collectionAmount) && amount > collectionAmount) {
+      toast.error(
+        `Collection only has GHS ${formatMoney(collectionAmount)} available.`,
+      );
+      return;
+    }
+    const confirmed = await confirm({
+      title: "Top up disbursement?",
+      description: `Move GHS ${amount.toFixed(2)} from the Hubtel collection account to the disbursement (prepaid) account?\n\nThis is the same internal transfer used before service delivery.`,
+      confirmLabel: "Move funds",
+    });
+    if (!confirmed) {
+      return;
+    }
+    try {
+      const res = await topUp({ amount_ghs: amount }).unwrap();
+      const message =
+        res && typeof res === "object" && "message" in res
+          ? String((res as { message?: string }).message ?? "Disbursement topped up.")
+          : "Disbursement topped up.";
+      toast.success(message);
+      setTopUpAmount("");
+      await Promise.all([refetchHubtelBalance(), refetchBalances()]);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "data" in err
+          ? String((err as { data?: { message?: string } }).data?.message ?? "Top-up failed.")
+          : "Top-up failed.";
+      toast.error(msg);
+    }
+  }
 
   async function onVerify(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -119,6 +165,7 @@ export default function BalancesPage(): React.ReactElement {
 
   return (
     <article className="space-y-6">
+      {confirmDialog}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <AdminPageHeader
           title="Provider Balances"
@@ -276,6 +323,56 @@ export default function BalancesPage(): React.ReactElement {
             ) : (
               <p className="text-muted-foreground text-sm">Click Refresh to fetch live Hubtel balances.</p>
             )}
+
+            {hubtelLive ? (
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <ArrowRightLeft className="size-4" aria-hidden="true" />
+                  Top up disbursement from collection
+                </div>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  Move funds from the collection account (customer MoMo payments) into the prepaid
+                  disbursement account used for airtime, data, and bill delivery.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Label htmlFor="hubtel-top-up-amount">Amount (GHS)</Label>
+                    <Input
+                      id="hubtel-top-up-amount"
+                      value={topUpAmount}
+                      onChange={(e) => {
+                        setTopUpAmount(e.target.value);
+                      }}
+                      inputMode="decimal"
+                      placeholder="e.g. 50"
+                      disabled={!canTopUpDisbursement || toppingUp}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={!canTopUpDisbursement || toppingUp || !topUpAmount.trim()}
+                    aria-busy={toppingUp}
+                    onClick={() => {
+                      void onTopUpDisbursement();
+                    }}
+                  >
+                    {toppingUp ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                        Transferring…
+                      </>
+                    ) : (
+                      "Top up disbursement"
+                    )}
+                  </Button>
+                </div>
+                {Number.isFinite(collectionAmount) ? (
+                  <p className="text-muted-foreground text-xs">
+                    Up to GHS {formatMoney(collectionAmount)} available in collection.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="bg-muted rounded-md p-3 text-sm">
               <span className="font-semibold">Net Hubtel cost to date:</span>{" "}
