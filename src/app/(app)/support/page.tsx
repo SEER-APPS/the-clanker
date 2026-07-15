@@ -45,7 +45,7 @@ export default function SupportPage(): React.ReactElement {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">App Support</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Customer support conversations from the mobile app.
+          Customer support from the mobile app and website contact form.
         </p>
       </header>
 
