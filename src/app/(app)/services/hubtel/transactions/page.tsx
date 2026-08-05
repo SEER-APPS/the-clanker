@@ -287,13 +287,14 @@ export default function HubtelTransactionsPage(): React.ReactElement {
                 <TableHead>Recipient</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <AdminTableBodySkeleton
                   rows={10}
-                  cellWidths={["w-8", "w-28", "w-20", "w-24", "w-16", "w-14"]}
+                  cellWidths={["w-8", "w-28", "w-20", "w-24", "w-16", "w-14", "w-24"]}
                 />
               ) : (
                 rows.map((row) => {
@@ -303,6 +304,7 @@ export default function HubtelTransactionsPage(): React.ReactElement {
                   const hrefKey = uuid || String(id);
                   const displayStatus = String(r.display_status ?? r.status ?? "");
                   const ref = String(r.client_reference ?? (uuid || id));
+                  const dateLabel = formatTransactionDate(String(r.created_at ?? ""));
                   return (
                     <TableRow key={id}>
                       <TableCell>
@@ -334,6 +336,9 @@ export default function HubtelTransactionsPage(): React.ReactElement {
                           ? `GHS ${r.amount.toFixed(2)}`
                           : String(r.amount ?? "—")}
                       </TableCell>
+                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                        {dateLabel}
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -357,4 +362,17 @@ export default function HubtelTransactionsPage(): React.ReactElement {
       </Card>
     </article>
   );
+}
+
+function formatTransactionDate(iso: string): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }

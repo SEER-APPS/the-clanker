@@ -141,7 +141,7 @@ export default function StaffAdminsPage(): React.ReactElement {
                     setEmail(e.target.value);
                   }}
                   required
-                  placeholder="e.g. jane@theseer.app"
+                  placeholder="e.g. jane@seermessenger.com"
                 />
               </div>
               <div className="space-y-2">

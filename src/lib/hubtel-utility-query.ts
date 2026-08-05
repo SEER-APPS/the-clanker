@@ -4,9 +4,10 @@ export type HubtelUtilityQueryService =
   | "ghana_water"
   | "dstv"
   | "gotv"
-  | "startimes";
+  | "startimes"
+  | "telecel_postpaid";
 
-export type HubtelUtilityPayService = HubtelUtilityQueryService | "telecel_postpaid";
+export type HubtelUtilityPayService = HubtelUtilityQueryService;
 
 export type HubtelUtilityQueryAccount = {
   account_name: string;
@@ -39,6 +40,7 @@ export const HUBTEL_UTILITY_QUERY_SERVICES: { value: HubtelUtilityQueryService; 
     { value: "dstv", label: "DSTV" },
     { value: "gotv", label: "GOtv" },
     { value: "startimes", label: "StarTimes" },
+    { value: "telecel_postpaid", label: "Telecel Postpaid" },
   ];
 
 export function utilityServiceLabel(service: string): string {
