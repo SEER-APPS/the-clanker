@@ -36,6 +36,7 @@ export const adminApi = createApi({
     "Balances",
     "Features",
     "ServiceOrders",
+    "Recurring",
   ],
   endpoints: (builder) => ({
     getMe: builder.query<
@@ -472,6 +473,19 @@ export const adminApi = createApi({
     hubtelSyncPending: builder.mutation<unknown, void>({
       query: () => ({ url: "/services/hubtel/sync-pending", method: "POST" }),
     }),
+    getRecurringSubscriptions: builder.query<
+      Record<string, unknown>,
+      Record<string, string | boolean | number | undefined>
+    >({
+      query: (params) => ({ url: "/services/recurring", params }),
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
+      providesTags: ["Recurring"],
+    }),
+    getRecurringSubscription: builder.query<Record<string, unknown>, string>({
+      query: (uuid) => `/services/recurring/${encodeURIComponent(uuid)}`,
+      transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
+      providesTags: (_r, _e, uuid) => [{ type: "Recurring", id: uuid }],
+    }),
     getHubnetSummary: builder.query<Record<string, unknown>, void>({
       query: () => "/services/hubnet/summary",
       transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
@@ -675,6 +689,8 @@ export const {
   useHubtelStatusCheckMutation,
   useHubtelRefundMutation,
   useHubtelSyncPendingMutation,
+  useGetRecurringSubscriptionsQuery,
+  useGetRecurringSubscriptionQuery,
   useGetHubnetSummaryQuery,
   useGetHubnetSkusQuery,
   useGetHubnetOffersQuery,

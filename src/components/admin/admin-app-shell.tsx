@@ -24,6 +24,7 @@ import {
   MessageSquareText,
   PhoneCall,
   ReceiptText,
+  Repeat,
   Settings,
   ShieldAlert,
   Ticket,
@@ -79,6 +80,7 @@ const NAV_ICON_BY_HREF: Record<string, React.ComponentType<{ className?: string 
   "/services/passport": BookOpenText,
   "/services/permit": Briefcase,
   "/services/hubtel": MessageSquareText,
+  "/services/recurring": Repeat,
   "/services/hubnet": Database,
   "/services/data-catalogue": Database,
 

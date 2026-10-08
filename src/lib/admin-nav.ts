@@ -41,6 +41,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { label: "Passport", href: "/services/passport" },
       { label: "Permit", href: "/services/permit" },
       { label: "Hubtel", href: "/services/hubtel" },
+      { label: "Recurring Payments", href: "/services/recurring" },
       { label: "Hubnet Data", href: "/services/hubnet" },
       { label: "Data Catalogue", href: "/services/data-catalogue" },
     ],

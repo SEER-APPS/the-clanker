@@ -42,6 +42,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+
+type NotificationFeedRow = Record<string, unknown> & {
+  id?: string;
+  event_type?: string;
+  status?: string;
+  fcm_message_id?: string | null;
+  error_message?: string | null;
+  created_at?: string | null;
+  details?: Record<string, unknown> | null;
+  feed_source?: string;
+  user?: { uuid?: string; name?: string | null; phone_number?: string | null } | null;
+};
 
 export default function NotificationsPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -65,6 +84,8 @@ export default function NotificationsPage(): React.ReactElement {
   const [composeStatusOwner, setComposeStatusOwner] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [appliedUserSearch, setAppliedUserSearch] = useState("");
+  const [selectedRow, setSelectedRow] = useState<NotificationFeedRow | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const { data, isLoading, isError } = useGetNotificationsQuery({
     page,
@@ -122,6 +143,11 @@ export default function NotificationsPage(): React.ReactElement {
       }
       return next;
     });
+  }
+
+  function openNotificationDetail(row: NotificationFeedRow): void {
+    setSelectedRow(row);
+    setDetailOpen(true);
   }
 
   function toggleSelectAllOnPage(): void {
@@ -537,6 +563,65 @@ export default function NotificationsPage(): React.ReactElement {
 
       {isError ? <p className="text-destructive text-sm">Could not load logs.</p> : null}
 
+      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Notification details</SheetTitle>
+            <SheetDescription>
+              {selectedRow?.event_type
+                ? String(selectedRow.event_type)
+                : "Delivery and system event metadata"}
+            </SheetDescription>
+          </SheetHeader>
+          {selectedRow ? (
+            <div className="space-y-4 px-4 pb-6 text-sm">
+              <dl className="space-y-3">
+                <div>
+                  <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">ID</dt>
+                  <dd className="font-mono text-xs break-all">{String(selectedRow.id ?? "—")}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Status</dt>
+                  <dd>{String(selectedRow.status ?? "—")}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Source</dt>
+                  <dd>{String(selectedRow.feed_source ?? "push_delivery")}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Message</dt>
+                  <dd className="whitespace-pre-wrap break-words">
+                    {String(selectedRow.error_message ?? "—")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                    Trace / FCM ID
+                  </dt>
+                  <dd className="font-mono text-xs break-all">
+                    {String(selectedRow.fcm_message_id ?? "—")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Sent at</dt>
+                  <dd>{String(selectedRow.created_at ?? "—")}</dd>
+                </div>
+              </dl>
+              {selectedRow.details && typeof selectedRow.details === "object" ? (
+                <div>
+                  <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                    Event payload
+                  </p>
+                  <pre className="bg-muted max-h-[50vh] overflow-auto rounded-md p-3 font-mono text-[11px] leading-relaxed">
+                    {JSON.stringify(selectedRow.details, null, 2)}
+                  </pre>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
       <Card>
         <CardContent className="pt-6">
           <Table>
@@ -588,14 +673,24 @@ export default function NotificationsPage(): React.ReactElement {
                     const userSub = user?.name ? String(user?.phone_number ?? "") : "";
                     const userUuid = String(user?.uuid ?? "");
                     return (
-                      <TableRow key={String(r.id)}>
-                        <TableCell>
+                      <TableRow
+                        key={String(r.id)}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          openNotificationDetail(r as NotificationFeedRow);
+                        }}
+                      >
+                        <TableCell
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                        >
                           {userUuid ? (
                             <input
                               type="checkbox"
                               checked={selectedUserUuids.has(userUuid)}
-                              onChange={(e) => {
-                                toggleUser(userUuid, e.target.checked);
+                              onChange={(event) => {
+                                toggleUser(userUuid, event.target.checked);
                               }}
                               aria-label={`Select ${userLabel}`}
                             />
@@ -609,6 +704,9 @@ export default function NotificationsPage(): React.ReactElement {
                             <Link
                               href={`/users/${encodeURIComponent(userUuid)}`}
                               className="text-foreground text-sm font-medium hover:underline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
                             >
                               {userLabel}
                             </Link>

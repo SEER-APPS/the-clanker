@@ -35,14 +35,5 @@
     "shadcn": "^4.11.0",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "pnpm": {
-    "overrides": {
-      "hono": ">=4.12.25",
-      "qs": ">=6.15.2",
-      "postcss": ">=8.5.10",
-      "js-yaml": ">=4.2.0",
-      "@babel/core": ">=7.29.6"
-    }
   }
 }
