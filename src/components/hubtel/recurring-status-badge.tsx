@@ -14,6 +14,9 @@ export function RecurringStatusBadge({
   if (s === "pending_verification") {
     return <Badge variant="gray">Pending verification</Badge>;
   }
+  if (s === "pending_approval") {
+    return <Badge variant="gray">Awaiting MoMo approval</Badge>;
+  }
   if (s === "payment_failed") {
     return <Badge variant="dark">Payment failed</Badge>;
   }

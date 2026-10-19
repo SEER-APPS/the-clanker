@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import { RecurringStatusBadge } from "@/components/hubtel/recurring-status-badge";
+import { RecurringFundingAlert } from "@/components/hubtel/recurring-funding-alert";
 
 const PAYMENT_INTERVAL_LABELS: Record<string, string> = {
   DAILY: "Daily",
@@ -70,6 +71,8 @@ export default function RecurringSubscriptionsPage(): React.ReactElement {
           </p>
         </div>
       </header>
+
+      <RecurringFundingAlert showItems />
 
       <Card>
         <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:flex-wrap md:items-end">

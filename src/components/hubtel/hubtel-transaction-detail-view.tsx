@@ -5,6 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 import { HubtelDetailSection, type DetailField } from "@/components/hubtel/hubtel-detail-section";
 
+type ResponseSample = {
+  key: string;
+  label: string;
+  payload: unknown;
+};
+
 type Presentation = {
   status: string;
   display_status: string;
@@ -16,6 +22,7 @@ type Presentation = {
   service_order_fields: DetailField[];
   hubtel_response_fields: DetailField[];
   fulfillment_fields: DetailField[];
+  response_samples?: ResponseSample[];
 };
 
 function readPresentation(tx: Record<string, unknown>): Presentation | null {
@@ -83,6 +90,27 @@ export function HubtelTransactionDetailView({
       <HubtelDetailSection title="Service order" fields={presentation.service_order_fields} />
       <HubtelDetailSection title="Hubtel responses" fields={presentation.hubtel_response_fields} />
       <HubtelDetailSection title="Fulfillment" fields={presentation.fulfillment_fields} />
+
+      {presentation.response_samples && presentation.response_samples.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Response &amp; callback samples</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground text-sm">
+              Stored Hubtel init/callback JSON and linked MoMo payment payloads for this order.
+            </p>
+            {presentation.response_samples.map((sample) => (
+              <div key={sample.key} className="space-y-2">
+                <p className="text-sm font-medium">{sample.label}</p>
+                <pre className="bg-muted max-h-[280px] overflow-auto rounded-md p-3 font-mono text-xs">
+                  {JSON.stringify(sample.payload, null, 2)}
+                </pre>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">

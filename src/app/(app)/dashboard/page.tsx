@@ -3,6 +3,7 @@
 import { useGetDashboardQuery } from "@/store/admin-api";
 import { SupportConversationRow } from "@/components/admin/support-conversation-row";
 import { DashboardCharts } from "@/components/admin/dashboard-charts";
+import { RecurringFundingAlert } from "@/components/hubtel/recurring-funding-alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardOverviewSkeleton } from "@/components/admin/admin-loading-skeletons";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,8 @@ export default function DashboardPage(): React.ReactElement {
         <h1 className="admin-page-title">Overview</h1>
         <p className="admin-page-sub">Platform activity — {overviewDate}</p>
       </header>
+
+      <RecurringFundingAlert />
 
       <section className="grid gap-3 md:grid-cols-4">
         <div className="admin-stat-tile">

@@ -3,6 +3,30 @@ import type { AdminMe, DashboardPayload, Paginated } from "@/types/admin";
 import { adminTransformResponse } from "@/lib/admin-api-envelope";
 import { adminJsonBaseQuery } from "@/store/admin-base-query";
 
+/** GET /admin/v1/services/recurring/funding — recurring deliveries waiting on the Hubtel float. */
+export type RecurringFunding = {
+  wait_window_hours: number;
+  awaiting_count: number;
+  awaiting_ghs: number;
+  awaiting_oldest_since: string | null;
+  forecast_24h_count: number;
+  forecast_24h_ghs: number;
+  disbursement_ghs: number | null;
+  collection_ghs: number | null;
+  shortfall_ghs: number;
+  items: Array<{
+    charge_id: string;
+    subscription_uuid: string;
+    product: string;
+    recipient: string;
+    order_uuid: string | null;
+    amount_ghs: number | null;
+    awaiting_funds_since: string | null;
+    next_funds_retry_at: string | null;
+    funds_retry_count: number;
+  }>;
+};
+
 type FeatureToggleAuditActor = {
   adminId: string;
   adminName: string;
@@ -481,6 +505,11 @@ export const adminApi = createApi({
       transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
       providesTags: ["Recurring"],
     }),
+    getRecurringFunding: builder.query<RecurringFunding, void>({
+      query: () => "/services/recurring/funding",
+      transformResponse: (raw: unknown) => adminTransformResponse<RecurringFunding>(raw),
+      providesTags: ["Recurring"],
+    }),
     getRecurringSubscription: builder.query<Record<string, unknown>, string>({
       query: (uuid) => `/services/recurring/${encodeURIComponent(uuid)}`,
       transformResponse: (raw: unknown) => adminTransformResponse<Record<string, unknown>>(raw),
@@ -691,6 +720,7 @@ export const {
   useHubtelSyncPendingMutation,
   useGetRecurringSubscriptionsQuery,
   useGetRecurringSubscriptionQuery,
+  useGetRecurringFundingQuery,
   useGetHubnetSummaryQuery,
   useGetHubnetSkusQuery,
   useGetHubnetOffersQuery,

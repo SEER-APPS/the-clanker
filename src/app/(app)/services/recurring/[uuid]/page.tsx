@@ -207,7 +207,14 @@ export default function RecurringSubscriptionDetailPage({
                         <TableCell className="text-right font-medium">
                           {displayAmount(charge.amount_charged, sub.currency)}
                         </TableCell>
-                        <TableCell>{chargeStatusBadge(charge.status)}</TableCell>
+                        <TableCell>
+                          {chargeStatusBadge(charge.status)}
+                          {charge.awaiting_funds === true ? (
+                            <Badge variant="dark" className="ml-1">
+                              Awaiting funds · {display(charge.funds_retry_count)} retries
+                            </Badge>
+                          ) : null}
+                        </TableCell>
                         <TableCell className="max-w-[16rem] text-xs text-muted-foreground">
                           {display(charge.error_message)}
                         </TableCell>
