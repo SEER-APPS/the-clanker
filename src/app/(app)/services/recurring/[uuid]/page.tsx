@@ -127,6 +127,12 @@ export default function RecurringSubscriptionDetailPage({
     { label: "Hubtel recurring invoice ID", value: display(sub.hubtel_recurring_invoice_id), mono: true },
   ];
 
+  const metadata =
+    sub.metadata && typeof sub.metadata === "object" && !Array.isArray(sub.metadata)
+      ? (sub.metadata as Record<string, unknown>)
+      : null;
+  const hubtelCreateFailure = metadata?.hubtel_create_failure;
+
   return (
     <article className="space-y-6">
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -166,6 +172,22 @@ export default function RecurringSubscriptionDetailPage({
       <HubtelDetailSection title="Billing" fields={billingFields} />
       <HubtelDetailSection title="Schedule" fields={scheduleFields} />
       <HubtelDetailSection title="References" fields={referenceFields} />
+
+      {hubtelCreateFailure != null ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Hubtel setup failure</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-3 text-sm">
+              Stored when create-invoice was rejected before an OTP could be sent.
+            </p>
+            <pre className="bg-muted max-h-[320px] overflow-auto rounded-md p-3 font-mono text-xs">
+              {JSON.stringify(hubtelCreateFailure, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

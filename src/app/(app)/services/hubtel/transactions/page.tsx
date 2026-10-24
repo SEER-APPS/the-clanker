@@ -284,6 +284,7 @@ export default function HubtelTransactionsPage(): React.ReactElement {
                 </TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Product</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Recipient</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
@@ -294,7 +295,7 @@ export default function HubtelTransactionsPage(): React.ReactElement {
               {isLoading ? (
                 <AdminTableBodySkeleton
                   rows={10}
-                  cellWidths={["w-8", "w-28", "w-20", "w-24", "w-16", "w-14", "w-24"]}
+                  cellWidths={["w-8", "w-28", "w-20", "w-20", "w-24", "w-16", "w-14", "w-24"]}
                 />
               ) : (
                 rows.map((row) => {
@@ -325,11 +326,21 @@ export default function HubtelTransactionsPage(): React.ReactElement {
                         </Link>
                       </TableCell>
                       <TableCell>{String(r.product_label ?? r.product ?? "—")}</TableCell>
+                      <TableCell className="text-xs">
+                        {String(r.payment_flow_label ?? "Commission Services")}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {String(r.recipient ?? "—")}
                       </TableCell>
                       <TableCell>
-                        <HubtelStatusBadge status={displayStatus} />
+                        <div className="flex flex-col gap-1">
+                          <HubtelStatusBadge status={displayStatus} />
+                          {displayStatus === "failed" && r.error_message ? (
+                            <span className="text-muted-foreground line-clamp-2 max-w-[200px] text-xs">
+                              {String(r.error_message)}
+                            </span>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {typeof r.amount === "number"
