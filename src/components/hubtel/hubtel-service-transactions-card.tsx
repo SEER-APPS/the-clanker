@@ -19,6 +19,10 @@ import {
 } from "@/components/ui/table";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
+import {
+  formatHubtelPaymentFlowLabel,
+  hubtelPaymentFlowTitle,
+} from "@/lib/hubtel-payment-flow";
 
 type HubtelServiceTransactionsCardProps = {
   title?: string;
@@ -104,6 +108,7 @@ export function HubtelServiceTransactionsCard({
               <TableRow>
                 <TableHead className="admin-table-head">Reference</TableHead>
                 <TableHead className="admin-table-head">Product</TableHead>
+                <TableHead className="admin-table-head">Payment flow</TableHead>
                 <TableHead className="admin-table-head">Recipient</TableHead>
                 <TableHead className="admin-table-head">User</TableHead>
                 <TableHead className="admin-table-head">Status</TableHead>
@@ -115,7 +120,7 @@ export function HubtelServiceTransactionsCard({
               {isLoading ? (
                 <AdminTableBodySkeleton
                   rows={8}
-                  cellWidths={["w-28", "w-20", "w-24", "w-24", "w-16", "w-16", "w-24"]}
+                  cellWidths={["w-28", "w-20", "w-24", "w-24", "w-24", "w-16", "w-16", "w-24"]}
                 />
               ) : (
                 <>
@@ -143,6 +148,12 @@ export function HubtelServiceTransactionsCard({
                           </Link>
                         </TableCell>
                         <TableCell>{String(r.product_label ?? r.product ?? "—")}</TableCell>
+                        <TableCell
+                          className="max-w-[160px] text-xs"
+                          title={hubtelPaymentFlowTitle(r.payment_flow)}
+                        >
+                          {formatHubtelPaymentFlowLabel(r.payment_flow_label, r.payment_flow)}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {String(r.recipient ?? "—")}
                         </TableCell>

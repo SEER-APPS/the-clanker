@@ -27,6 +27,10 @@ import { Loader2 } from "lucide-react";
 import { AdminTableBodySkeleton } from "@/components/admin/admin-loading-skeletons";
 import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 import { useAdminConfirm } from "@/hooks/use-admin-confirm";
+import {
+  formatHubtelPaymentFlowLabel,
+  hubtelPaymentFlowTitle,
+} from "@/lib/hubtel-payment-flow";
 
 export default function HubtelTransactionsPage(): React.ReactElement {
   const [page, setPage] = useState(1);
@@ -284,7 +288,7 @@ export default function HubtelTransactionsPage(): React.ReactElement {
                 </TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Product</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Payment flow</TableHead>
                 <TableHead>Recipient</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
@@ -326,8 +330,11 @@ export default function HubtelTransactionsPage(): React.ReactElement {
                         </Link>
                       </TableCell>
                       <TableCell>{String(r.product_label ?? r.product ?? "—")}</TableCell>
-                      <TableCell className="text-xs">
-                        {String(r.payment_flow_label ?? "Commission Services")}
+                      <TableCell
+                        className="max-w-[180px] text-xs"
+                        title={hubtelPaymentFlowTitle(r.payment_flow)}
+                      >
+                        {formatHubtelPaymentFlowLabel(r.payment_flow_label, r.payment_flow)}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {String(r.recipient ?? "—")}

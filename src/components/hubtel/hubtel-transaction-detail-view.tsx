@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HubtelStatusBadge } from "@/components/hubtel/hubtel-status-badge";
 import { HubtelDetailSection, type DetailField } from "@/components/hubtel/hubtel-detail-section";
+import { formatHubtelPaymentFlowLabel } from "@/lib/hubtel-payment-flow";
 
 type ResponseSample = {
   key: string;
@@ -63,6 +64,12 @@ export function HubtelTransactionDetailView({
             <CardTitle className="text-lg">{presentation.product_label}</CardTitle>
             <p className="text-muted-foreground mt-1 font-mono text-xs">
               {String(tx.client_reference ?? tx.uuid ?? tx.id ?? "")}
+            </p>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Payment flow:{" "}
+              <span className="text-foreground font-medium">
+                {formatHubtelPaymentFlowLabel(tx.payment_flow_label, tx.payment_flow)}
+              </span>
             </p>
           </div>
           <HubtelStatusBadge status={displayStatus} />
