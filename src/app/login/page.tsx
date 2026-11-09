@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
@@ -13,6 +13,17 @@ export default function LoginPage(): React.ReactElement {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("admin_keep_signed_in");
+      if (saved === "1") {
+        setRememberMe(true);
+      }
+    } catch {
+      // Private mode or storage blocked — default unchecked.
+    }
+  }, []);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -32,6 +43,11 @@ export default function LoginPage(): React.ReactElement {
         message?: string;
         errors?: Record<string, string[]>;
       };
+      try {
+        window.localStorage.setItem("admin_keep_signed_in", rememberMe ? "1" : "0");
+      } catch {
+        // Non-fatal.
+      }
       if (!res.ok || !body.success) {
         const msg = loginFailureMessageForClient(
           res.status,

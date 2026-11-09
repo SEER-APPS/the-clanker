@@ -6,3 +6,12 @@ const parsedMaxAge = Number.parseInt(
 export const ADMIN_SESSION_COOKIE_MAX_AGE_SECONDS = Number.isFinite(parsedMaxAge)
   ? parsedMaxAge
   : 60 * 60 * 24;
+
+/** Remember-me cookie — should match core `SESSION_ADMIN_REMEMBER_DAYS` (default 30 days). */
+const parsedRememberMaxAge = Number.parseInt(
+  process.env.ADMIN_SESSION_REMEMBER_COOKIE_MAX_AGE_SECONDS ?? "",
+  10,
+);
+export const ADMIN_SESSION_REMEMBER_COOKIE_MAX_AGE_SECONDS = Number.isFinite(parsedRememberMaxAge)
+  ? parsedRememberMaxAge
+  : 60 * 60 * 24 * 30;

@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_TOKEN_COOKIE } from "@/lib/admin-cookie";
-import { ADMIN_SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/admin-session-config";
+import {
+  ADMIN_SESSION_COOKIE_MAX_AGE_SECONDS,
+  ADMIN_SESSION_REMEMBER_COOKIE_MAX_AGE_SECONDS,
+} from "@/lib/admin-session-config";
 import { loginFailureMessageForClient } from "@/lib/login-failure-message";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -13,8 +16,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   let body: string;
+  let rememberSignIn = false;
   try {
     body = await request.text();
+    try {
+      const parsedBody = JSON.parse(body) as { remember?: unknown };
+      rememberSignIn = parsedBody.remember === true;
+    } catch {
+      // Core validates the body; proxy only needs the remember flag for cookie max-age.
+    }
   } catch {
     return NextResponse.json(
       { success: false, message: loginFailureMessageForClient(400) },
@@ -83,7 +93,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: ADMIN_SESSION_COOKIE_MAX_AGE_SECONDS,
+      maxAge: rememberSignIn
+        ? ADMIN_SESSION_REMEMBER_COOKIE_MAX_AGE_SECONDS
+        : ADMIN_SESSION_COOKIE_MAX_AGE_SECONDS,
     });
   } catch (err) {
     console.error("[admin/auth/login] failed to set session cookie", err);
