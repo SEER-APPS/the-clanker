@@ -307,11 +307,12 @@ export const adminApi = createApi({
         status?: string;
         error_message?: string | null;
       },
-      string
+      { uuid: string; delivery_phone?: string }
     >({
-      query: (uuid) => ({
+      query: ({ uuid, delivery_phone }) => ({
         url: `/services/orders/${encodeURIComponent(uuid)}/redeliver`,
         method: "POST",
+        body: delivery_phone ? { delivery_phone } : {},
       }),
       invalidatesTags: ["ServiceOrders", "Balances", "Dashboard"],
     }),

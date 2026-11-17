@@ -120,8 +120,10 @@ export default function HubtelTransactionDetailPage({
             <ServiceOrderResendButton
               orderUuid={linkedOrder.orderUuid}
               status={linkedOrder.status}
+              product={linkedOrder.product}
               productLabel={productLabel}
               deliveryAmount={deliveryAmount}
+              customerPhone={linkedOrder.customerPhone}
               size="default"
               onCompleted={() => {
                 void refetch();
